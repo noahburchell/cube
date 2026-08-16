@@ -10,6 +10,8 @@ eselect repository add noahburchell git https://github.com/noahburchell/noahburc
 emaint sync --repo noahburchell
 # may be masked
 emerge --ask games-misc/cube-cli
+
+cube
 ```
 distro support status:
   - gentoo ✅
