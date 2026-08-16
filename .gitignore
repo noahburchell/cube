@@ -1,0 +1,10 @@
+# Ignore everything by default, then allow only the sources we track.
+*
+
+!.gitignore
+!Makefile
+!src/
+src/*
+!src/main.c
+!src/window.c
+!src/window.h
