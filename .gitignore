@@ -4,6 +4,7 @@
 !.gitignore
 !Makefile
 !src/
+!README.md
 src/*
 !src/main.c
 !src/window.c
