@@ -6,7 +6,8 @@ linux only
 
 dependencies:
   - linux
-  - gcc
+  - make
+  - gcc 13+
 
 building:
   - run 'make'
