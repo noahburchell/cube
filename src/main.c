@@ -205,11 +205,16 @@ static void draw_cube(window *win, float t) {
 }
 
 static int quit_requested(void) {
+        if (!term_saved)
+                return 0;
         char buf[16];
         ssize_t n = read(STDIN_FILENO, buf, sizeof buf);
 
+        if (n == 1 && buf[0] == 27)
+                return 1;
+
         for (ssize_t i = 0; i < n; i++)
-                if (buf[i] == 'q' || buf[i] == 'Q' || buf[i] == 27 || buf[i] == 3)
+                if (buf[i] == 'q' || buf[i] == 'Q')
                         return 1;
 
         return 0;
@@ -246,6 +251,9 @@ int main(int argc, char **argv) {
 
                 struct timespec now;
                 clock_gettime(CLOCK_MONOTONIC, &now);
+                if (next.tv_sec < now.tv_sec ||
+                        (next.tv_sec == now.tv_sec && next.tv_nsec < now.tv_nsec))
+                        next = now;
                 float t = (float)(now.tv_sec - start.tv_sec)
                         + (float)(now.tv_nsec - start.tv_nsec) / 1e9f;
 
