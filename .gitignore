@@ -1,5 +1,7 @@
 # Ignore everything by default, then allow only the sources we track.
 *
+
+!docs/demo.gif
 !LICENSE
 !.gitattributes
 !.gitignore
