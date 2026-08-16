@@ -1,6 +1,7 @@
 # cube-cli
 
 spinning cube
+<img width="1004" height="1142" alt="cube" src="https://github.com/user-attachments/assets/7e26a7ac-0c52-4cce-9a07-c9a3c8c838e8" />
 
 ### if you're on gentoo:
 ```sh
