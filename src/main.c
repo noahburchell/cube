@@ -251,11 +251,14 @@ int main(int argc, char **argv) {
 
                 struct timespec now;
                 clock_gettime(CLOCK_MONOTONIC, &now);
-                if (next.tv_sec < now.tv_sec ||
-                        (next.tv_sec == now.tv_sec && next.tv_nsec < now.tv_nsec))
-                        next = now;
+
                 float t = (float)(now.tv_sec - start.tv_sec)
                         + (float)(now.tv_nsec - start.tv_nsec) / 1e9f;
+
+                long behind = (long)(now.tv_sec - next.tv_sec) * 1000000000L
+                            + (now.tv_nsec - next.tv_nsec);
+                if (behind > FRAME_NS)
+                        next = now;
 
                 clear_win(&win);
                 draw_cube(&win, t);
