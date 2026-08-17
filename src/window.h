@@ -8,7 +8,7 @@ typedef struct cell_t {
         /* color later potentially */
 } cell_t;
 
-constexpr cell_t CELL_BLANK = { .c = ' ' };
+constexpr cell_t CELL_BLANK = { .c = ' ' }; // constexpr instead of const for when color is added if i need to to switch on a glyph or size an array by one 
 
 typedef struct window {
         int width, height;

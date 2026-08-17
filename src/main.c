@@ -73,7 +73,7 @@ static void term_setup(void) {
         if (tcgetattr(STDIN_FILENO, &saved_term) == 0) {
                 struct termios raw = saved_term;
                 raw.c_lflag &= ~(unsigned)(ICANON | ECHO);
-                raw.c_cc[VMIN]  = 0;   /* reads never block, so keys can be polled */
+                raw.c_cc[VMIN]  = 0;   /* reads never block so keys can be polled */
                 raw.c_cc[VTIME] = 0;
                 term_saved = tcsetattr(STDIN_FILENO, TCSANOW, &raw) == 0;
         }
@@ -100,7 +100,7 @@ static vec3 rotate(vec3 v, float ax, float ay, float az) {
 }
 
 static float fit_scale(const window *win) {
-        const float r = 1.7320508f;
+        const float r = 1.7320508f; // circumradius of the unit cube sqrt(3)
         const float m = sqrtf(CAM_DIST * CAM_DIST - r * r) / r;
 
         float by_w = FILL * (float)win->width  * 0.5f * m / CELL_ASPECT;

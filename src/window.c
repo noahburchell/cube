@@ -181,7 +181,7 @@ int resize_pending(void) {
 }
 
 int resize_win(window *win) {
-        /* cleared before the query, so a SIGWINCH racing the ioctl leaves the flag set and gets picked up next frame instead of being swallowed */
+        /* cleared before the query so SIGWINCH racing the ioctl leaves the flag set and gets picked up next frame */
         resized = 0;
 
         int w, h;
