@@ -5,11 +5,14 @@ spinning cube
 
 ### usage
 ```sh
-cube [--shape]
+usage: ./cube [--shape]
 
---cube          # default
---tetrahedron
---pyramid
+shapes:
+  --cube (default)
+  --tetrahedron
+  --octahedron
+  --dodecahedron
+  --icosahedron
 ```
 fills the terminal and tracks resizes. q or esc quits.
 

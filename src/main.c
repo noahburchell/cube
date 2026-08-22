@@ -32,7 +32,6 @@ typedef struct mat3 {
 
 // whole mesh is a single allocation instead of parallel arrays
 typedef struct pvert {
-        vec3 r;
         float x, y;
 } pvert;
 
@@ -109,14 +108,6 @@ static mat3 rotation(float ax, float ay, float az) {
         };
 }
 
-static vec3 rotate(mat3 m, vec3 v) {
-        return (vec3){
-                m.cx.x * v.x + m.cy.x * v.y + m.cz.x * v.z,
-                m.cx.y * v.x + m.cy.y * v.y + m.cz.y * v.z,
-                m.cx.z * v.x + m.cy.z * v.y + m.cz.z * v.z,
-        };
-}
-
 static float fit_scale(const window *win, float r) {
         const float m = sqrtf(CAM_DIST * CAM_DIST - r * r) / r;
 
@@ -126,52 +117,98 @@ static float fit_scale(const window *win, float r) {
         return by_w < by_h ? by_w : by_h;
 }
 
-static void fill_tri(window *win, const float fx[3], const float fy[3], char c) {
-        float ymin = fy[0], ymax = fy[0];
-        for (int i = 1; i < 3; i++) {
-                if (fy[i] < ymin) ymin = fy[i];
-                if (fy[i] > ymax) ymax = fy[i];
+static inline void fill_span(cell_t *restrict row, float xl, float xr, float wmax, char c) {
+        if (xl > xr) {
+                const float s = xl;
+                xl = xr;
+                xr = s;
         }
 
-        int top = (int)ceilf(ymin);
-        int bot = (int)floorf(ymax);
-        if (top < 0) top = 0;
-        if (bot > win->height - 1) bot = win->height - 1;
+        if (xl < 0.0f) xl = 0.0f;
+        if (xr > wmax) xr = wmax;
+        if (!(xl <= xr))
+                return;
 
-        for (int y = top; y <= bot; y++) {
-                float xl = HUGE_VALF, xr = -HUGE_VALF;
+        int a = (int)xl;
+        a += ((float)a < xl);
 
-                for (int i = 0; i < 3; i++) {
-                        int j = (i + 1) % 3;
-                        float ya = fy[i], yb = fy[j];
+        const int b = (int)xr;
+        if (a > b)
+                return;
 
-                        if (ya == yb)
-                                continue;
-
-                        float lo = ya < yb ? ya : yb;
-                        float hi = ya < yb ? yb : ya;
-                        if ((float)y < lo || (float)y > hi)
-                                continue;
-
-                        float x = fx[i] + ((float)y - ya) * (fx[j] - fx[i]) / (yb - ya);
-                        if (x < xl) xl = x;
-                        if (x > xr) xr = x;
-                }
-                if (xl > xr)
-                        continue;
-
-                int a = (int)ceilf(xl);
-                int b = (int)floorf(xr);
-                if (a < 0) a = 0;
-                if (b > win->width - 1) b = win->width - 1;
-
-                cell_t *row = win->grid + (size_t)y * (size_t)win->width;
+        if (sizeof(cell_t) == 1)
+                memset(row + a, (unsigned char)c, (size_t)(b - a + 1));
+        else
                 for (int x = a; x <= b; x++)
                         row[x].c = c;
+}
+
+static void fill_tri(const window *win, const float fx[static 3], const float fy[static 3], char c) {
+        float x0 = fx[0], y0 = fy[0];
+        float x1 = fx[1], y1 = fy[1];
+        float x2 = fx[2], y2 = fy[2];
+        float s;
+
+        if (y0 > y1) { s = x0; x0 = x1; x1 = s; s = y0; y0 = y1; y1 = s; }
+        if (y1 > y2) { s = x1; x1 = x2; x2 = s; s = y1; y1 = y2; y2 = s; }
+        if (y0 > y1) { s = x0; x0 = x1; x1 = s; s = y0; y0 = y1; y1 = s; }
+
+        const float dfull = y2 - y0;
+        if (!(dfull > 0.0f))
+                return;
+
+        const int w = win->width;
+        const float wmax = (float)(w - 1);
+
+        float ytf = ceilf(y0);
+        float ybf = floorf(y2);
+        if (ytf < 0.0f) ytf = 0.0f;
+        if (ybf > (float)(win->height - 1)) ybf = (float)(win->height - 1);
+        if (!(ytf <= ybf))
+                return;
+
+        const int ytop = (int)ytf;
+        const int ybot = (int)ybf;
+
+        const float mfull = (x2 - x0) / dfull;
+        const float dup = y1 - y0;
+        const float dlo = y2 - y1;
+
+        int ymid;
+        if (!(dup > 0.0f))
+                ymid = ytop - 1;
+        else if (!(dlo > 0.0f))
+                ymid = ybot;
+        else {
+                float ymf = floorf(y1);
+                if (ymf < (float)(ytop - 1)) ymf = (float)(ytop - 1);
+                if (ymf > (float)ybot)       ymf = (float)ybot;
+                ymid = (int)ymf;
+        }
+
+        cell_t *row = win->grid + (size_t)ytop * (size_t)w;
+        int y = ytop;
+
+        if (ymid >= ytop) {
+                const float mup = (x1 - x0) / dup;
+
+                for (; y <= ymid; y++, row += w) {
+                        const float d = (float)y - y0;
+                        fill_span(row, x0 + d * mfull, x0 + d * mup, wmax, c);
+                }
+        }
+
+        if (y <= ybot) {
+                const float mlo = (x2 - x1) / dlo;
+
+                for (; y <= ybot; y++, row += w) {
+                        const float yf = (float)y;
+                        fill_span(row, x0 + (yf - y0) * mfull, x1 + (yf - y1) * mlo, wmax, c);
+                }
         }
 }
 
-static void draw_mesh(window *win, const mesh *m, float radius, pvert *pv, float t) {
+static void draw_mesh(const window *win, const mesh *m, float radius, pvert *restrict pv, float t) {
         const float scale = fit_scale(win, radius);
 
         const float cx = (float)(win->width  - 1) * 0.5f;
@@ -179,38 +216,36 @@ static void draw_mesh(window *win, const mesh *m, float radius, pvert *pv, float
 
         const mat3 rot = rotation(t * 0.70f, t * 1.10f, t * 0.35f);
 
-        for (size_t i = 0; i < m->nverts; i++) {
-                pv[i].r = rotate(rot, m->verts[i]);
+        const float xx = rot.cx.x, xy = rot.cx.y, xz = rot.cx.z;
+        const float yx = rot.cy.x, yy = rot.cy.y, yz = rot.cy.z;
+        const float zx = rot.cz.x, zy = rot.cz.y, zz = rot.cz.z;
 
-                float k = scale / (pv[i].r.z + CAM_DIST);
-                pv[i].x = cx + pv[i].r.x * k * CELL_ASPECT;
-                pv[i].y = cy + pv[i].r.y * k;
+        const vec3 *restrict verts = m->verts;
+
+        for (size_t i = 0; i < m->nverts; i++) {
+                const float vx = verts[i].x, vy = verts[i].y, vz = verts[i].z;
+                const float k = scale / (xz * vx + yz * vy + zz * vz + CAM_DIST);
+
+                pv[i].x = cx + (xx * vx + yx * vy + zx * vz) * k * CELL_ASPECT;
+                pv[i].y = cy + (xy * vx + yy * vy + zy * vz) * k;
         }
 
+        const tri *restrict tris = m->tris;
+
         for (size_t f = 0; f < m->ntris; f++) {
-                const uint32_t *v = m->tris[f].v;
+                const uint32_t *v = tris[f].v;
 
-                vec3 a = pv[v[0]].r, b = pv[v[1]].r, d = pv[v[2]].r;
-                vec3 e1 = { b.x - a.x, b.y - a.y, b.z - a.z };
-                vec3 e2 = { d.x - a.x, d.y - a.y, d.z - a.z };
+                const float ax = pv[v[0]].x, ay = pv[v[0]].y;
+                const float bx = pv[v[1]].x, by = pv[v[1]].y;
+                const float dx = pv[v[2]].x, dy = pv[v[2]].y;
 
-                vec3 n = { e1.y * e2.z - e1.z * e2.y,
-                           e1.z * e2.x - e1.x * e2.z,
-                           e1.x * e2.y - e1.y * e2.x };
-
-                vec3 mid = { (a.x + b.x + d.x) / 3.0f,
-                             (a.y + b.y + d.y) / 3.0f,
-                             (a.z + b.z + d.z) / 3.0f };
-
-                if (n.x * mid.x + n.y * mid.y + n.z * (mid.z + CAM_DIST) >= 0.0f)
+                if ((bx - ax) * (dy - ay) - (by - ay) * (dx - ax) >= 0.0f)
                         continue;
 
-                float qx[3], qy[3];
-                for (int i = 0; i < 3; i++) {
-                        qx[i] = pv[v[i]].x;
-                        qy[i] = pv[v[i]].y;
-                }
-                fill_tri(win, qx, qy, m->tris[f].c);
+                const float qx[3] = { ax, bx, dx };
+                const float qy[3] = { ay, by, dy };
+
+                fill_tri(win, qx, qy, tris[f].c);
         }
 }
 

@@ -15,8 +15,7 @@
 #define FALLBACK_COLS 100
 #define FALLBACK_ROWS 50
 
-#define HOME     "\033[H"
-#define HOME_LEN 3
+#define MOVE_MAX 24
 
 static volatile sig_atomic_t resized;
 
@@ -38,30 +37,31 @@ static int alloc_win(window *win, int w, int h) {
                 return 1;
         }
 
-        size_t body, obytes;
-        if (ckd_mul(&body, (size_t)h, (size_t)w + 1) || ckd_add(&obytes, body, HOME_LEN)) {
+        size_t obytes;
+        if (ckd_add(&obytes, (size_t)w, MOVE_MAX) || ckd_mul(&obytes, obytes, (size_t)h)) {
                 win_err = "window dimensions too large";
                 return 1;
         }
 
         win->grid = malloc(n);
-        if (!win->grid) {
-                win_err = "out of memory";
-                return 1;
-        }
+        win->prev = malloc(n);
+        win->out  = malloc(obytes);
 
-        win->out = malloc(obytes);
-        if (!win->out) {
-                win_err = "out of memory";
+        if (!win->grid || !win->prev || !win->out) {
                 free(win->grid);
+                free(win->prev);
+                free(win->out);
                 win->grid = NULL;
+                win->prev = NULL;
+                win->out  = NULL;
+                win_err = "out of memory";
                 return 1;
         }
-        memcpy(win->out, HOME, HOME_LEN);
 
         win->width   = w;
         win->height  = h;
-        win->out_len = HOME_LEN + body - 1;
+        win->out_cap = obytes;
+        win->dirty   = 1;
 
         return 0;
 }
@@ -98,52 +98,102 @@ int init_win(window *win, int w, int h) {
 
 void destroy_win(window *win) {
         free(win->grid);
+        free(win->prev);
         free(win->out);
         win->grid = NULL;
+        win->prev = NULL;
         win->out = NULL;
         win->width = 0;
         win->height = 0;
-        win->out_len = 0;
+        win->out_cap = 0;
+        win->dirty = 1;
+}
+
+static char *put_uint(char *p, unsigned v) {
+        char d[10];
+        int n = 0;
+
+        do {
+                d[n++] = (char)('0' + v % 10u);
+                v /= 10u;
+        } while (v);
+
+        while (n)
+                *p++ = d[--n];
+
+        return p;
+}
+
+static char *put_move(char *p, int y, int x) {
+        *p++ = '\033';
+        *p++ = '[';
+        p = put_uint(p, (unsigned)y + 1u);
+        *p++ = ';';
+        p = put_uint(p, (unsigned)x + 1u);
+        *p++ = 'H';
+
+        return p;
 }
 
 int draw_win(window *win) {
         const int w = win->width;
         const int h = win->height;
+        const int all = win->dirty;
 
-        {
-                const cell_t *restrict src = win->grid;
-                char *restrict dst = win->out + HOME_LEN;
+        const cell_t *restrict grid = win->grid;
+        cell_t *restrict prev = win->prev;
+        char *o = win->out;
 
-                for (int y = 0; y < h; y++) {
-                        if (sizeof(cell_t) == 1) {
-                                memcpy(dst, src, (size_t)w);
-                                dst += w;
-                        } else {
-                                for (int x = 0; x < w; x++)
-                                        dst[x] = src[x].c;
-                                dst += w;
-                        }
-                        src += w;
+        for (int y = 0; y < h; y++) {
+                const size_t off = (size_t)y * (size_t)w;
+                const cell_t *restrict cur = grid + off;
+                cell_t *restrict old = prev + off;
 
-                        *dst = '\n';
-                        dst += (y != h - 1);
+                int a = 0, b = w - 1;
+
+                if (!all) {
+                        if (memcmp(cur, old, (size_t)w * sizeof *cur) == 0)
+                                continue;
+
+                        while (a < w && cur[a].c == old[a].c)
+                                a++;
+                        if (a == w)
+                                continue;
+
+                        while (cur[b].c == old[b].c)
+                                b--;
                 }
+
+                const size_t n = (size_t)(b - a + 1);
+
+                o = put_move(o, y, a);
+
+                if (sizeof(cell_t) == 1)
+                        memcpy(o, cur + a, n);
+                else
+                        for (size_t i = 0; i < n; i++)
+                                o[i] = cur[(size_t)a + i].c;
+                o += n;
+
+                memcpy(old + a, cur + a, n * sizeof *cur);
         }
 
-        const char *p = win->out;
-        size_t left = win->out_len;
+        win->dirty = 0;
 
-        for (;;) {
-                ssize_t n = write(STDOUT_FILENO, p, left);
-                if (n == (ssize_t)left)
+        const char *p = win->out;
+        size_t left = (size_t)(o - win->out);
+
+        while (left) {
+                ssize_t k = write(STDOUT_FILENO, p, left);
+                if (k == (ssize_t)left)
                         return 0;
 
-                if (n > 0) {
-                        p += n;
-                        left -= (size_t)n;
+                if (k > 0) {
+                        p += k;
+                        left -= (size_t)k;
                         continue;
                 }
-                if (n == 0)
+                if (k == 0)
                         return -1;
 
                 if (errno == EINTR)
@@ -157,16 +207,19 @@ int draw_win(window *win) {
                 }
                 return -1;
         }
+
+        return 0;
 }
 
-void clear_win(window *win) {
-        size_t n = (size_t)win->width * (size_t)win->height;
+void clear_win(const window *win) {
+        cell_t *restrict grid = win->grid;
+        const size_t n = (size_t)win->width * (size_t)win->height;
 
         if (sizeof(cell_t) == 1)
-                memset(win->grid, CELL_BLANK.c, n);
+                memset(grid, CELL_BLANK.c, n);
         else
                 for (size_t i = 0; i < n; i++)
-                        win->grid[i] = CELL_BLANK;
+                        grid[i] = CELL_BLANK;
 }
 
 static void on_sigwinch(int sig) {
@@ -193,6 +246,8 @@ int resize_win(window *win) {
         /* cleared before the query so SIGWINCH racing the ioctl leaves the flag set and gets picked up next frame */
         resized = 0;
 
+        win->dirty = 1;
+
         int w, h;
         if (query_size(&w, &h))
                 return 0;
@@ -205,6 +260,7 @@ int resize_win(window *win) {
                 return 1;
 
         free(win->grid);
+        free(win->prev);
         free(win->out);
         *win = next;
 

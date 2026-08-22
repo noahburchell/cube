@@ -13,9 +13,11 @@ constexpr cell_t CELL_BLANK = { .c = ' ' }; // constexpr instead of const for wh
 typedef struct window {
         int width, height;
         cell_t *grid;
+        cell_t *prev;
 
         char *out;
-        size_t out_len;
+        size_t out_cap;
+        int dirty;
 } window;
 
 const char *win_error(void);
@@ -27,7 +29,7 @@ void destroy_win(window *win);
 
 int draw_win(window *win);
 
-void clear_win(window *win);
+void clear_win(const window *win);
 
 int watch_resize(void);
 
