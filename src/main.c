@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <limits.h>
 #include <math.h>
 #include <time.h>
 #include <signal.h>
@@ -36,11 +37,7 @@ typedef struct pvert {
 } pvert;
 
 static volatile sig_atomic_t running = 1;
-
-static void on_quit(int sig) {
-        (void)sig;
-        running = 0;
-}
+static volatile sig_atomic_t caught;
 
 static void emit(const char *s) {
         size_t n = strlen(s);
@@ -74,6 +71,30 @@ static void term_restore(void) {
         emit(CURS_ON ALT_OFF);
         if (term_saved)
                 tcsetattr(STDIN_FILENO, TCSANOW, &saved_term);
+}
+
+static void install(int sig, void (*handler)(int), int flags) {
+        struct sigaction sa = { .sa_handler = handler, .sa_flags = flags };
+        sigfillset(&sa.sa_mask);
+        sigaction(sig, &sa, NULL);
+}
+
+static void on_quit(int sig) {
+        caught = sig;
+        running = 0;
+}
+
+static void on_stop(int sig) {
+        term_restore();
+        install(sig, SIG_DFL, 0);
+        raise(sig);
+}
+
+static void on_cont(int sig) {
+        (void)sig;
+        term_setup();
+        mark_resize();
+        install(SIGTSTP, on_stop, 0);
 }
 
 static mat3 rotation(float ax, float ay, float az) {
@@ -144,7 +165,7 @@ static void fill_tri(window *win, const float fx[3], const float fy[3], char c) 
                 if (a < 0) a = 0;
                 if (b > win->width - 1) b = win->width - 1;
 
-                cell_t *row = win->grid + (size_t)y * win->width;
+                cell_t *row = win->grid + (size_t)y * (size_t)win->width;
                 for (int x = a; x <= b; x++)
                         row[x].c = c;
         }
@@ -209,11 +230,24 @@ static int quit_requested(void) {
         return 0;
 }
 
-static void usage(const char *prog) {
-        fprintf(stderr, "usage: %s [--shape]\n\nshapes:\n", prog);
+static int parse_dim(const char *s, int *out) {
+        char *end;
+
+        errno = 0;
+        long v = strtol(s, &end, 10);
+
+        if (end == s || *end != '\0' || errno == ERANGE || v <= 0 || v > INT_MAX)
+                return 1;
+
+        *out = (int)v;
+        return 0;
+}
+
+static void usage(FILE *out, const char *prog) {
+        fprintf(out, "usage: %s [--shape]\n\nshapes:\n", prog);
 
         for (size_t i = 0; i < nshapes; i++)
-                fprintf(stderr, "  --%s%s\n", shapes[i].name, i == 0 ? " (default)" : "");
+                fprintf(out, "  --%s%s\n", shapes[i].name, i == 0 ? " (default)" : "");
 }
 
 int main(int argc, char **argv) {
@@ -225,60 +259,80 @@ int main(int argc, char **argv) {
         for (int i = 1; i < argc; i++) {
                 if (strncmp(argv[i], "--", 2) == 0) {
                         if (strcmp(argv[i], "--help") == 0) {
-                                usage(argv[0]);
+                                usage(stdout, argv[0]);
                                 return 0;
                         }
 
                         const mesh *m = shape_find(argv[i] + 2);
                         if (!m) {
-                                fprintf(stderr, "Unknown option '%s'\n\n", argv[i]);
-                                usage(argv[0]);
+                                fprintf(stderr, "cube: unknown option '%s'\n\n", argv[i]);
+                                usage(stderr, argv[0]);
                                 return 1;
                         }
                         shape = m;
                 } else if (ndim < 2) {
-                        dim[ndim++] = atoi(argv[i]);
+                        if (parse_dim(argv[i], &dim[ndim])) {
+                                fprintf(stderr, "cube: invalid dimension '%s'\n\n", argv[i]);
+                                usage(stderr, argv[0]);
+                                return 1;
+                        }
+                        ndim++;
                 } else {
-                        fprintf(stderr, "Unexpected argument '%s'\n\n", argv[i]);
-                        usage(argv[0]);
+                        fprintf(stderr, "cube: unexpected argument '%s'\n\n", argv[i]);
+                        usage(stderr, argv[0]);
                         return 1;
                 }
         }
 
         if (ndim == 1) {
-                fprintf(stderr, "Both a width and a height are required\n\n");
-                usage(argv[0]);
+                fprintf(stderr, "cube: both a width and a height are required\n\n");
+                usage(stderr, argv[0]);
+                return 1;
+        }
+
+        if (!isatty(STDOUT_FILENO)) {
+                fprintf(stderr, "cube: stdout is not a terminal\n");
                 return 1;
         }
 
         const float radius = mesh_radius(shape);
 
-        // a vla here would put an objs vertex count on the stack
-        pvert *pv = malloc(shape->nverts * sizeof *pv);
-        if (!pv) {
-                fprintf(stderr, "PANIC - Failed to allocate vertex scratch! No fallback path!\n");
+        if (!(radius > 0.0f)) {
+                fprintf(stderr, "cube: shape has no usable geometry\n");
                 return 1;
         }
 
-        if (ndim == 2) {
-                if (init_win(&win, dim[0], dim[1])) {
-                        free(pv);
-                        return 1;
-                }
-        } else {
-                if (init_win_auto(&win)) {
-                        free(pv);
-                        return 1;
-                }
+        if (radius >= CAM_DIST) {
+                fprintf(stderr, "cube: shape radius %g exceeds camera distance %g\n",
+                        (double)radius, (double)CAM_DIST);
+                return 1;
+        }
+
+        // a vla here would put an objs vertex count on the stack
+        pvert *pv = malloc(shape->nverts * sizeof *pv);
+        if (!pv) {
+                fprintf(stderr, "cube: out of memory\n");
+                return 1;
+        }
+
+        if (ndim == 2 ? init_win(&win, dim[0], dim[1]) : init_win_auto(&win)) {
+                fprintf(stderr, "cube: %s\n", win_error());
+                free(pv);
+                return 1;
         }
 
         if (watch_resize())
-                fprintf(stderr, "Failed to install SIGWINCH handler, resizing will not track\n");
+                fprintf(stderr, "cube: failed to install SIGWINCH handler, resizing will not track\n");
 
-        struct sigaction sa = { .sa_handler = on_quit };
-        sigemptyset(&sa.sa_mask);
-        sigaction(SIGINT, &sa, NULL);
-        sigaction(SIGTERM, &sa, NULL);
+        install(SIGINT,  on_quit, 0);
+        install(SIGTERM, on_quit, 0);
+        install(SIGHUP,  on_quit, 0);
+        install(SIGQUIT, on_quit, 0);
+        install(SIGTSTP, on_stop, 0);
+        install(SIGCONT, on_cont, SA_RESTART);
+        install(SIGPIPE, SIG_IGN, 0);
+        install(SIGTTOU, SIG_IGN, 0);
+        install(SIGTTIN, SIG_IGN, 0);
 
         term_setup();
 
@@ -286,9 +340,15 @@ int main(int argc, char **argv) {
         clock_gettime(CLOCK_MONOTONIC, &start);
         next = start;
 
+        int status = 0;
+        const char *err = NULL;
+
         while (running) {
-                if (resize_pending())
-                        resize_win(&win);
+                if (resize_pending() && resize_win(&win)) {
+                        err = win_error();
+                        status = 1;
+                        break;
+                }
 
                 struct timespec now;
                 clock_gettime(CLOCK_MONOTONIC, &now);
@@ -304,8 +364,11 @@ int main(int argc, char **argv) {
                 clear_win(&win);
                 draw_mesh(&win, shape, radius, pv, t);
 
-                if (draw_win(&win))
+                if (draw_win(&win)) {
+                        err = "failed to write to terminal";
+                        status = 1;
                         break;
+                }
                 if (quit_requested())
                         break;
 
@@ -321,5 +384,13 @@ int main(int argc, char **argv) {
         destroy_win(&win);
         free(pv);
 
-        return 0;
+        if (err)
+                fprintf(stderr, "cube: %s\n", err);
+
+        if (caught) {
+                install((int)caught, SIG_DFL, 0);
+                raise((int)caught);
+        }
+
+        return status;
 }

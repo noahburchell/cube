@@ -20,33 +20,39 @@
 
 static volatile sig_atomic_t resized;
 
+static const char *win_err;
+
+const char *win_error(void) {
+        return win_err ? win_err : "unknown window error";
+}
+
 static int alloc_win(window *win, int w, int h) {
         if (w <= 0 || h <= 0) {
-                fprintf(stderr, "PANIC - Invalid dimensions %dx%d!\n", w, h);
+                win_err = "invalid window dimensions";
                 return 1;
         }
 
         size_t n;
         if (ckd_mul(&n, (size_t)w, (size_t)h) || ckd_mul(&n, n, sizeof(cell_t))) {
-                fprintf(stderr, "PANIC - Grid dimensions overflow! No fallback path!\n");
+                win_err = "window dimensions too large";
                 return 1;
         }
 
         size_t body, obytes;
         if (ckd_mul(&body, (size_t)h, (size_t)w + 1) || ckd_add(&obytes, body, HOME_LEN)) {
-                fprintf(stderr, "PANIC - Frame buffer size overflow! No fallback path!\n");
+                win_err = "window dimensions too large";
                 return 1;
         }
 
         win->grid = malloc(n);
         if (!win->grid) {
-                fprintf(stderr, "PANIC - Failed to allocate grid! No fallback path!\n");
+                win_err = "out of memory";
                 return 1;
         }
 
         win->out = malloc(obytes);
         if (!win->out) {
-                fprintf(stderr, "PANIC - Failed to allocate frame buffer! No fallback path!\n");
+                win_err = "out of memory";
                 free(win->grid);
                 win->grid = NULL;
                 return 1;
@@ -73,7 +79,7 @@ static int query_size(int *w, int *h) {
 int init_win_auto(window *win) {
         int w, h;
         if (query_size(&w, &h)) {
-                fprintf(stderr, "Failed to fetch window dimensions, falling back to %dx%d\n",
+                fprintf(stderr, "cube: failed to fetch window dimensions, falling back to %dx%d\n",
                         FALLBACK_COLS, FALLBACK_ROWS);
                 w = FALLBACK_COLS;
                 h = FALLBACK_ROWS;
@@ -86,7 +92,8 @@ int init_win(window *win, int w, int h) {
         if (alloc_win(win, w, h))
                 return 1;
 
-        return clear_win(win);
+        clear_win(win);
+        return 0;
 }
 
 void destroy_win(window *win) {
@@ -152,16 +159,14 @@ int draw_win(window *win) {
         }
 }
 
-int clear_win(window *win) {
-        size_t n = (size_t)win->width * win->height;
+void clear_win(window *win) {
+        size_t n = (size_t)win->width * (size_t)win->height;
 
         if (sizeof(cell_t) == 1)
                 memset(win->grid, CELL_BLANK.c, n);
         else
                 for (size_t i = 0; i < n; i++)
                         win->grid[i] = CELL_BLANK;
-
-        return 0;
 }
 
 static void on_sigwinch(int sig) {
@@ -180,13 +185,17 @@ int resize_pending(void) {
         return resized;
 }
 
+void mark_resize(void) {
+        resized = 1;
+}
+
 int resize_win(window *win) {
         /* cleared before the query so SIGWINCH racing the ioctl leaves the flag set and gets picked up next frame */
         resized = 0;
 
         int w, h;
         if (query_size(&w, &h))
-                return 1;
+                return 0;
 
         if (w == win->width && h == win->height)
                 return 0;
@@ -199,5 +208,6 @@ int resize_win(window *win) {
         free(win->out);
         *win = next;
 
-        return clear_win(win);
+        clear_win(win);
+        return 0;
 }
