@@ -14,7 +14,7 @@ SRC     := $(wildcard src/*.c)
 OBJ     := $(SRC:src/%.c=build/%.o)
 DEP     := $(OBJ:.o=.d)
 
-CC_CANDIDATES := gcc clang cc gcc-15 gcc-14 clang-21 clang-20 clang-19 clang-18
+CC_CANDIDATES := gcc clang cc gcc-15 gcc-14 clang-21 clang-20 clang-19
 CC_IS_SET     := $(filter-out default undefined file,$(origin CC))
 GOALS         := $(if $(MAKECMDGOALS),$(MAKECMDGOALS),all)
 
@@ -25,7 +25,7 @@ ifneq ($(filter-out clean,$(GOALS)),)
 
 ifneq ($(CC_IS_SET),)
 ifeq ($(call cc-has-std,$(CC)),)
-$(error $(CC) does not support -std=$(STD): C23 needs gcc >= 14 or clang >= 18)
+$(error $(CC) does not support -std=$(STD): C23 needs gcc >= 14 or clang >= 19)
 endif
 else
 CC := $(shell for c in $(CC_CANDIDATES); do \
@@ -34,7 +34,7 @@ CC := $(shell for c in $(CC_CANDIDATES); do \
                   && { echo "$$c"; break; }; \
               done)
 ifeq ($(CC),)
-$(error no compiler supporting -std=$(STD) found: C23 needs gcc >= 14 or clang >= 18 \
+$(error no compiler supporting -std=$(STD) found: C23 needs gcc >= 14 or clang >= 19 \
         (tried $(CC_CANDIDATES)); override with 'make CC=/path/to/cc')
 endif
 endif
