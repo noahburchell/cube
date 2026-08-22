@@ -4,7 +4,7 @@ spinning cube (and the other platonic solids)
 
 ### usage
 ```sh
-usage: ./cube [--shape]
+usage: cube [--shape]
 
 shapes:
   --cube (default)
