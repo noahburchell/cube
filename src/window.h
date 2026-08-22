@@ -5,7 +5,7 @@
 
 typedef struct cell_t {
         char c;
-        /* color later potentially */
+        /* color later potentially - note: actually never, by "optimising" trhe draw loop i have restriced adding color even more as it will break */
 } cell_t;
 
 constexpr cell_t CELL_BLANK = { .c = ' ' }; // constexpr instead of const for when color is added if i need to to switch on a glyph or size an array by one 
