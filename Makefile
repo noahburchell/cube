@@ -1,7 +1,7 @@
 STD     := gnu23
 
 CFLAGS  ?= -O2
-CFLAGS  += -std=$(STD) -Wall -Wextra -Isrc -MMD -MP
+override CFLAGS += -std=$(STD) -Wall -Wextra -Isrc -MMD -MP
 LDFLAGS ?=
 LDLIBS  := -lm
 
