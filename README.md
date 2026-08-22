@@ -23,10 +23,8 @@ q or esc quits.
 emerge --ask app-eselect/eselect-repository
 eselect repository add noahburchell git https://github.com/noahburchell/noahburchell-overlay.git
 emaint sync --repo noahburchell
-# may be masked
-emerge --ask games-misc/cube-cli
-
-cube
+emerge --ask app-misc/cube
+cube --help
 ```
 distro support status:
   - gentoo ✅
