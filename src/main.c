@@ -10,6 +10,7 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include "shapes.h"
 #include "window.h"
 
 #define FPS         60
@@ -24,26 +25,15 @@
 #define CURS_OFF  "\033[?25l"
 #define CURS_ON   "\033[?25h"
 
-typedef struct vec3 {
-        float x, y, z;
-} vec3;
+typedef struct mat3 {
+        vec3 cx, cy, cz;
+} mat3;
 
-static const vec3 verts[8] = {
-        { -1, -1, -1 }, {  1, -1, -1 }, {  1,  1, -1 }, { -1,  1, -1 },
-        { -1, -1,  1 }, {  1, -1,  1 }, {  1,  1,  1 }, { -1,  1,  1 },
-};
-
-static const struct face {
-        unsigned char v[4];
-        char c;
-} faces[6] = {
-        { { 0, 1, 2, 3 }, '.' },   // back  
-        { { 1, 5, 6, 2 }, ':' },   // right 
-        { { 0, 1, 5, 4 }, '-' },   // top   
-        { { 0, 4, 7, 3 }, '+' },   // left  
-        { { 3, 2, 6, 7 }, '#' },   // bottom
-        { { 4, 5, 6, 7 }, '@' },   // front 
-};
+// whole mesh is a single allocation instead of parallel arrays
+typedef struct pvert {
+        vec3 r;
+        float x, y;
+} pvert;
 
 static volatile sig_atomic_t running = 1;
 
@@ -86,21 +76,27 @@ static void term_restore(void) {
                 tcsetattr(STDIN_FILENO, TCSANOW, &saved_term);
 }
 
-static vec3 rotate(vec3 v, float ax, float ay, float az) {
-        float s = sinf(ax), c = cosf(ax);
-        float y = v.y * c - v.z * s;
-        float z = v.y * s + v.z * c;
+static mat3 rotation(float ax, float ay, float az) {
+        const float sa = sinf(ax), ca = cosf(ax);
+        const float sb = sinf(ay), cb = cosf(ay);
+        const float sc = sinf(az), cc = cosf(az);
 
-        s = sinf(ay), c = cosf(ay);
-        float x = v.x * c + z * s;
-        z = -v.x * s + z * c;
-
-        s = sinf(az), c = cosf(az);
-        return (vec3){ x * c - y * s, x * s + y * c, z };
+        return (mat3){
+                .cx = { cb * cc,                cb * sc,                -sb     },
+                .cy = { sa * sb * cc - ca * sc, sa * sb * sc + ca * cc, sa * cb },
+                .cz = { ca * sb * cc + sa * sc, ca * sb * sc - sa * cc, ca * cb },
+        };
 }
 
-static float fit_scale(const window *win) {
-        const float r = 1.7320508f; // circumradius of the unit cube sqrt(3)
+static vec3 rotate(mat3 m, vec3 v) {
+        return (vec3){
+                m.cx.x * v.x + m.cy.x * v.y + m.cz.x * v.z,
+                m.cx.y * v.x + m.cy.y * v.y + m.cz.y * v.z,
+                m.cx.z * v.x + m.cy.z * v.y + m.cz.z * v.z,
+        };
+}
+
+static float fit_scale(const window *win, float r) {
         const float m = sqrtf(CAM_DIST * CAM_DIST - r * r) / r;
 
         float by_w = FILL * (float)win->width  * 0.5f * m / CELL_ASPECT;
@@ -109,9 +105,9 @@ static float fit_scale(const window *win) {
         return by_w < by_h ? by_w : by_h;
 }
 
-static void fill_quad(window *win, const float fx[4], const float fy[4], char c) {
+static void fill_tri(window *win, const float fx[3], const float fy[3], char c) {
         float ymin = fy[0], ymax = fy[0];
-        for (int i = 1; i < 4; i++) {
+        for (int i = 1; i < 3; i++) {
                 if (fy[i] < ymin) ymin = fy[i];
                 if (fy[i] > ymax) ymax = fy[i];
         }
@@ -124,8 +120,8 @@ static void fill_quad(window *win, const float fx[4], const float fy[4], char c)
         for (int y = top; y <= bot; y++) {
                 float xl = HUGE_VALF, xr = -HUGE_VALF;
 
-                for (int i = 0; i < 4; i++) {
-                        int j = (i + 1) & 3;
+                for (int i = 0; i < 3; i++) {
+                        int j = (i + 1) % 3;
                         float ya = fy[i], yb = fy[j];
 
                         if (ya == yb)
@@ -154,27 +150,26 @@ static void fill_quad(window *win, const float fx[4], const float fy[4], char c)
         }
 }
 
-static void draw_cube(window *win, float t) {
-        const float scale = fit_scale(win);
+static void draw_mesh(window *win, const mesh *m, float radius, pvert *pv, float t) {
+        const float scale = fit_scale(win, radius);
 
         const float cx = (float)(win->width  - 1) * 0.5f;
         const float cy = (float)(win->height - 1) * 0.5f;
 
-        vec3 r[8];
-        float px[8], py[8];
+        const mat3 rot = rotation(t * 0.70f, t * 1.10f, t * 0.35f);
 
-        for (int i = 0; i < 8; i++) {
-                r[i] = rotate(verts[i], t * 0.70f, t * 1.10f, t * 0.35f);
+        for (size_t i = 0; i < m->nverts; i++) {
+                pv[i].r = rotate(rot, m->verts[i]);
 
-                float k = scale / (r[i].z + CAM_DIST);
-                px[i] = cx + r[i].x * k * CELL_ASPECT;
-                py[i] = cy + r[i].y * k;
+                float k = scale / (pv[i].r.z + CAM_DIST);
+                pv[i].x = cx + pv[i].r.x * k * CELL_ASPECT;
+                pv[i].y = cy + pv[i].r.y * k;
         }
 
-        for (int f = 0; f < 6; f++) {
-                const unsigned char *v = faces[f].v;
+        for (size_t f = 0; f < m->ntris; f++) {
+                const uint32_t *v = m->tris[f].v;
 
-                vec3 a = r[v[0]], b = r[v[1]], d = r[v[3]];
+                vec3 a = pv[v[0]].r, b = pv[v[1]].r, d = pv[v[2]].r;
                 vec3 e1 = { b.x - a.x, b.y - a.y, b.z - a.z };
                 vec3 e2 = { d.x - a.x, d.y - a.y, d.z - a.z };
 
@@ -182,25 +177,19 @@ static void draw_cube(window *win, float t) {
                            e1.z * e2.x - e1.x * e2.z,
                            e1.x * e2.y - e1.y * e2.x };
 
-                vec3 mid = { 0, 0, 0 };
-                for (int i = 0; i < 4; i++) {
-                        mid.x += r[v[i]].x * 0.25f;
-                        mid.y += r[v[i]].y * 0.25f;
-                        mid.z += r[v[i]].z * 0.25f;
-                }
-                if (n.x * mid.x + n.y * mid.y + n.z * mid.z < 0.0f) {
-                        n.x = -n.x; n.y = -n.y; n.z = -n.z;
-                }
+                vec3 mid = { (a.x + b.x + d.x) / 3.0f,
+                             (a.y + b.y + d.y) / 3.0f,
+                             (a.z + b.z + d.z) / 3.0f };
 
                 if (n.x * mid.x + n.y * mid.y + n.z * (mid.z + CAM_DIST) >= 0.0f)
                         continue;
 
-                float qx[4], qy[4];
-                for (int i = 0; i < 4; i++) {
-                        qx[i] = px[v[i]];
-                        qy[i] = py[v[i]];
+                float qx[3], qy[3];
+                for (int i = 0; i < 3; i++) {
+                        qx[i] = pv[v[i]].x;
+                        qy[i] = pv[v[i]].y;
                 }
-                fill_quad(win, qx, qy, faces[f].c);
+                fill_tri(win, qx, qy, m->tris[f].c);
         }
 }
 
@@ -220,15 +209,67 @@ static int quit_requested(void) {
         return 0;
 }
 
+static void usage(const char *prog) {
+        fprintf(stderr, "usage: %s [--shape]\n\nshapes:\n", prog);
+
+        for (size_t i = 0; i < nshapes; i++)
+                fprintf(stderr, "  --%s%s\n", shapes[i].name, i == 0 ? " (default)" : "");
+}
+
 int main(int argc, char **argv) {
         window win;
 
-        if (argc >= 3) {
-                if (init_win(&win, atoi(argv[1]), atoi(argv[2])))
+        const mesh *shape = &shapes[0];
+        int dim[2], ndim = 0;
+
+        for (int i = 1; i < argc; i++) {
+                if (strncmp(argv[i], "--", 2) == 0) {
+                        if (strcmp(argv[i], "--help") == 0) {
+                                usage(argv[0]);
+                                return 0;
+                        }
+
+                        const mesh *m = shape_find(argv[i] + 2);
+                        if (!m) {
+                                fprintf(stderr, "Unknown option '%s'\n\n", argv[i]);
+                                usage(argv[0]);
+                                return 1;
+                        }
+                        shape = m;
+                } else if (ndim < 2) {
+                        dim[ndim++] = atoi(argv[i]);
+                } else {
+                        fprintf(stderr, "Unexpected argument '%s'\n\n", argv[i]);
+                        usage(argv[0]);
                         return 1;
+                }
+        }
+
+        if (ndim == 1) {
+                fprintf(stderr, "Both a width and a height are required\n\n");
+                usage(argv[0]);
+                return 1;
+        }
+
+        const float radius = mesh_radius(shape);
+
+        // a vla here would put an objs vertex count on the stack
+        pvert *pv = malloc(shape->nverts * sizeof *pv);
+        if (!pv) {
+                fprintf(stderr, "PANIC - Failed to allocate vertex scratch! No fallback path!\n");
+                return 1;
+        }
+
+        if (ndim == 2) {
+                if (init_win(&win, dim[0], dim[1])) {
+                        free(pv);
+                        return 1;
+                }
         } else {
-                if (init_win_auto(&win))
+                if (init_win_auto(&win)) {
+                        free(pv);
                         return 1;
+                }
         }
 
         if (watch_resize())
@@ -261,7 +302,7 @@ int main(int argc, char **argv) {
                         next = now;
 
                 clear_win(&win);
-                draw_cube(&win, t);
+                draw_mesh(&win, shape, radius, pv, t);
 
                 if (draw_win(&win))
                         break;
@@ -278,6 +319,7 @@ int main(int argc, char **argv) {
 
         term_restore();
         destroy_win(&win);
+        free(pv);
 
         return 0;
 }

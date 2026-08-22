@@ -3,6 +3,16 @@
 spinning cube
 ![demo](docs/demo.gif)
 
+### usage
+```sh
+cube [--shape]
+
+--cube          # default
+--tetrahedron
+--pyramid
+```
+fills the terminal and tracks resizes. q or esc quits.
+
 ### if you're on gentoo:
 ```sh
 emerge --ask app-eselect/eselect-repository
