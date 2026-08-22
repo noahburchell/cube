@@ -1,7 +1,6 @@
-# cube-cli
+# cube
 
-spinning cube
-![demo](docs/demo.gif)
+spinning cube (and the other platonic solids)
 
 ### usage
 ```sh
@@ -14,7 +13,10 @@ shapes:
   --dodecahedron
   --icosahedron
 ```
-fills the terminal and tracks resizes. q or esc quits.
+
+![demo](docs/demo.gif)
+
+q or esc quits.
 
 ### if you're on gentoo:
 ```sh
