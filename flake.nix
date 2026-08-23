@@ -9,46 +9,50 @@
       # termios, poll and TIOCGWINSZ, per the README's "dependencies: linux".
       systems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = fn: nixpkgs.lib.genAttrs systems (system: fn nixpkgs.legacyPackages.${system});
-    in
-    {
-      packages = forAllSystems (
+
+      # Takes the pkgs it builds against, so the overlay below can build with
+      # the nixpkgs it is applied to instead of the one pinned here.
+      mkCube =
         pkgs:
         let
           inherit (pkgs) lib;
         in
-        rec {
-          default = cube;
+        pkgs.stdenv.mkDerivation {
+          pname = "cube";
+          version = "1.1.1";
 
-          cube = pkgs.stdenv.mkDerivation {
-            pname = "cube";
-            version = "1.1.1";
-
-            src = lib.fileset.toSource {
-              root = ./.;
-              fileset = lib.fileset.unions [
-                ./Makefile
-                ./src
-                ./LICENSE
-              ];
-            };
-
-            strictDeps = true;
-            enableParallelBuilding = true;
-
-            # install -Dm755 $(DESTDIR)$(BINDIR)/cube, with BINDIR = PREFIX/bin.
-            makeFlags = [ "PREFIX=$(out)" ];
-
-            meta = {
-              description = "spinning cube (and the other platonic solids) for your terminal";
-              homepage = "https://github.com/noahburchell/cube";
-              # No per-file headers granting "or later", so: version 3 exactly.
-              license = lib.licenses.gpl3Only;
-              mainProgram = "cube";
-              platforms = systems;
-            };
+          src = lib.fileset.toSource {
+            root = ./.;
+            fileset = lib.fileset.unions [
+              ./Makefile
+              ./src
+              ./LICENSE
+            ];
           };
-        }
-      );
+
+          strictDeps = true;
+          # build/%.o takes build/ as an order-only prereq, so -j is safe.
+          enableParallelBuilding = true;
+
+          # install -Dm755 $(DESTDIR)$(BINDIR)/cube, with BINDIR = PREFIX/bin.
+          # $(out) stays make syntax on purpose: make reads out from the env.
+          makeFlags = [ "PREFIX=$(out)" ];
+
+          meta = {
+            description = "spinning cube (and the other platonic solids) for your terminal";
+            homepage = "https://github.com/noahburchell/cube";
+            # No per-file headers granting "or later", so: version 3 exactly.
+            license = lib.licenses.gpl3Only;
+            mainProgram = "cube";
+            platforms = systems;
+          };
+        };
+    in
+    {
+      packages = forAllSystems (pkgs: rec {
+        default = cube;
+        cube = mkCube pkgs;
+      });
 
       apps = forAllSystems (pkgs: rec {
         default = cube;
@@ -56,6 +60,11 @@
           type = "app";
           program = nixpkgs.lib.getExe self.packages.${pkgs.stdenv.hostPlatform.system}.cube;
         };
+      });
+
+      # so 'nix flake check' actually builds the thing.
+      checks = forAllSystems (pkgs: {
+        cube = self.packages.${pkgs.stdenv.hostPlatform.system}.cube;
       });
 
       devShells = forAllSystems (pkgs: {
@@ -71,7 +80,7 @@
       });
 
       overlays.default = final: prev: {
-        cube = self.packages.${final.stdenv.hostPlatform.system}.cube;
+        cube = mkCube final;
       };
     };
 }

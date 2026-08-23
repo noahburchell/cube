@@ -26,9 +26,36 @@ emaint sync --repo noahburchell
 emerge --ask app-misc/cube
 cube --help
 ```
-### if your on nix:
+### if you're on nix:
+
+run it without installing anything:
 ```sh
-the flake is there
+nix run github:noahburchell/cube
+nix run github:noahburchell/cube -- --icosahedron
+```
+
+install it into your profile:
+```sh
+nix profile install github:noahburchell/cube
+```
+
+or add it to a flake:
+```nix
+{
+  inputs.cube.url = "github:noahburchell/cube";
+
+  # then, in your config:
+  #   environment.systemPackages = [ inputs.cube.packages.${pkgs.system}.default ];
+  # or, with the overlay:
+  #   nixpkgs.overlays = [ inputs.cube.overlays.default ];
+  #   environment.systemPackages = [ pkgs.cube ];
+}
+```
+
+hacking on it (drops you in a shell with gcc, make, bear, clangd and gdb):
+```sh
+nix develop
+make
 ```
 
 distro support status:
