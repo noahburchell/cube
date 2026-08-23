@@ -72,7 +72,11 @@ dependencies:
   - gcc 14+ (or clang 19+)
 
 building:
-  - run 'make' then 'make install'
+```sh
+make -j$(nproc)
+make install
+cube --help
+```
 
 # DEMO:
 ![demo](docs/demo.gif)
