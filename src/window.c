@@ -1,21 +1,21 @@
 #define _DEFAULT_SOURCE
 
-#include <sys/ioctl.h>
-#include <unistd.h>
+#include <errno.h>
+#include <poll.h>
 #include <signal.h>
+#include <stdckdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
-#include <poll.h>
-#include <stdckdint.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
 
 #include "window.h"
 
-#define FALLBACK_COLS 100
-#define FALLBACK_ROWS 50
+constexpr int FALLBACK_COLS = 100;
+constexpr int FALLBACK_ROWS = 50;
 
-#define MOVE_MAX 24
+constexpr size_t MOVE_MAX = 24;
 
 static volatile sig_atomic_t resized;
 
@@ -31,37 +31,29 @@ static int alloc_win(window *win, int w, int h) {
                 return 1;
         }
 
-        size_t n;
-        if (ckd_mul(&n, (size_t)w, (size_t)h) || ckd_mul(&n, n, sizeof(cell_t))) {
+        size_t cells, outbytes, total;
+
+        if (ckd_mul(&cells, (size_t)w, (size_t)h)
+         || ckd_add(&outbytes, (size_t)w, MOVE_MAX)
+         || ckd_mul(&outbytes, outbytes, (size_t)h)
+         || ckd_mul(&total, cells, (size_t)2)
+         || ckd_add(&total, total, outbytes)) {
                 win_err = "window dimensions too large";
                 return 1;
         }
 
-        size_t obytes;
-        if (ckd_add(&obytes, (size_t)w, MOVE_MAX) || ckd_mul(&obytes, obytes, (size_t)h)) {
-                win_err = "window dimensions too large";
-                return 1;
-        }
-
-        win->grid = malloc(n);
-        win->prev = malloc(n);
-        win->out  = malloc(obytes);
-
-        if (!win->grid || !win->prev || !win->out) {
-                free(win->grid);
-                free(win->prev);
-                free(win->out);
-                win->grid = NULL;
-                win->prev = NULL;
-                win->out  = NULL;
+        char *mem = malloc(total);
+        if (!mem) {
                 win_err = "out of memory";
                 return 1;
         }
 
-        win->width   = w;
-        win->height  = h;
-        win->out_cap = obytes;
-        win->dirty   = 1;
+        win->width  = w;
+        win->height = h;
+        win->out    = mem;
+        win->grid   = mem + outbytes;
+        win->prev   = win->grid + cells;
+        win->dirty  = true;
 
         return 0;
 }
@@ -97,16 +89,8 @@ int init_win(window *win, int w, int h) {
 }
 
 void destroy_win(window *win) {
-        free(win->grid);
-        free(win->prev);
         free(win->out);
-        win->grid = NULL;
-        win->prev = NULL;
-        win->out = NULL;
-        win->width = 0;
-        win->height = 0;
-        win->out_cap = 0;
-        win->dirty = 1;
+        *win = (window){};
 }
 
 static char *put_uint(char *p, unsigned v) {
@@ -138,47 +122,41 @@ static char *put_move(char *p, int y, int x) {
 int draw_win(window *win) {
         const int w = win->width;
         const int h = win->height;
-        const int all = win->dirty;
+        const bool all = win->dirty;
 
-        const cell_t *restrict grid = win->grid;
-        cell_t *restrict prev = win->prev;
+        const char *restrict grid = win->grid;
+        const char *restrict prev = win->prev;
         char *o = win->out;
 
         for (int y = 0; y < h; y++) {
                 const size_t off = (size_t)y * (size_t)w;
-                const cell_t *restrict cur = grid + off;
-                cell_t *restrict old = prev + off;
+                const char *restrict cur = grid + off;
+                const char *restrict old = prev + off;
 
                 int a = 0, b = w - 1;
 
                 if (!all) {
-                        if (memcmp(cur, old, (size_t)w * sizeof *cur) == 0)
+                        if (memcmp(cur, old, (size_t)w) == 0)
                                 continue;
 
-                        while (a < w && cur[a].c == old[a].c)
+                        while (cur[a] == old[a])
                                 a++;
-                        if (a == w)
-                                continue;
-
-                        while (cur[b].c == old[b].c)
+                        while (cur[b] == old[b])
                                 b--;
                 }
 
                 const size_t n = (size_t)(b - a + 1);
 
                 o = put_move(o, y, a);
-
-                if (sizeof(cell_t) == 1)
-                        memcpy(o, cur + a, n);
-                else
-                        for (size_t i = 0; i < n; i++)
-                                o[i] = cur[(size_t)a + i].c;
+                memcpy(o, cur + a, n);
                 o += n;
-
-                memcpy(old + a, cur + a, n * sizeof *cur);
         }
 
-        win->dirty = 0;
+        win->dirty = false;
+
+        char *drawn = win->grid;
+        win->grid = win->prev;
+        win->prev = drawn;
 
         const char *p = win->out;
         size_t left = (size_t)(o - win->out);
@@ -212,18 +190,10 @@ int draw_win(window *win) {
 }
 
 void clear_win(const window *win) {
-        cell_t *restrict grid = win->grid;
-        const size_t n = (size_t)win->width * (size_t)win->height;
-
-        if (sizeof(cell_t) == 1)
-                memset(grid, CELL_BLANK.c, n);
-        else
-                for (size_t i = 0; i < n; i++)
-                        grid[i] = CELL_BLANK;
+        memset(win->grid, ' ', (size_t)win->width * (size_t)win->height);
 }
 
-static void on_sigwinch(int sig) {
-        (void)sig;
+static void on_sigwinch([[maybe_unused]] int sig) {
         resized = 1;
 }
 
@@ -231,7 +201,7 @@ int watch_resize(void) {
         struct sigaction sa = { .sa_handler = on_sigwinch, .sa_flags = SA_RESTART };
         sigemptyset(&sa.sa_mask);
 
-        return sigaction(SIGWINCH, &sa, NULL) != 0;
+        return sigaction(SIGWINCH, &sa, nullptr) != 0;
 }
 
 int resize_pending(void) {
@@ -246,7 +216,7 @@ int resize_win(window *win) {
         /* cleared before the query so SIGWINCH racing the ioctl leaves the flag set and gets picked up next frame */
         resized = 0;
 
-        win->dirty = 1;
+        win->dirty = true;
 
         int w, h;
         if (query_size(&w, &h))
@@ -259,8 +229,6 @@ int resize_win(window *win) {
         if (alloc_win(&next, w, h))
                 return 1;
 
-        free(win->grid);
-        free(win->prev);
         free(win->out);
         *win = next;
 

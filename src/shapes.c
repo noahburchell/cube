@@ -1,138 +1,146 @@
-#include <math.h>
 #include <string.h>
 
 #include "shapes.h"
 
-static const vec3 cube_verts[8] = {
+static constexpr char RAMP[] = { '.', ':', '-', '+', '*', '#' };
+// static constexpr char RAMP[] = { '.', '+', 'o', 'O', '#', '@' };
+// static constexpr char RAMP[] = { '-', '=', '+', '*', 'o', '#' };
+
+static constexpr float PHI  = 1.6180340f;
+static constexpr float IPHI = 0.6180340f;
+
+static constexpr float RADIUS_SQRT3 = 1.7320508f;
+static constexpr float RADIUS_ICOSA = 1.9021131f;
+
+static_assert(RADIUS_SQRT3 <= MESH_MAX_RADIUS);
+static_assert(RADIUS_ICOSA <= MESH_MAX_RADIUS);
+
+static const vec3 cube_verts[] = {
         { -1, -1, -1 }, {  1, -1, -1 }, {  1,  1, -1 }, { -1,  1, -1 },
         { -1, -1,  1 }, {  1, -1,  1 }, {  1,  1,  1 }, { -1,  1,  1 },
 };
 
-static const tri cube_tris[12] = {
-        { { 0, 3, 2 }, '.' }, { { 0, 2, 1 }, '.' },   // -z
-        { { 1, 2, 6 }, ':' }, { { 1, 6, 5 }, ':' },   // +x
-        { { 0, 1, 5 }, '-' }, { { 0, 5, 4 }, '-' },   // -y
-        { { 0, 4, 7 }, '+' }, { { 0, 7, 3 }, '+' },   // -x
-        { { 3, 7, 6 }, '#' }, { { 3, 6, 2 }, '#' },   // +y
-        { { 4, 5, 6 }, '@' }, { { 4, 6, 7 }, '@' },   // +z
+static const tri cube_tris[] = {
+        { { 0, 3, 2 }, RAMP[0] }, { { 0, 2, 1 }, RAMP[0] },
+        { { 1, 2, 6 }, RAMP[1] }, { { 1, 6, 5 }, RAMP[1] },
+        { { 0, 1, 5 }, RAMP[2] }, { { 0, 5, 4 }, RAMP[2] },
+        { { 0, 4, 7 }, RAMP[3] }, { { 0, 7, 3 }, RAMP[3] },
+        { { 3, 7, 6 }, RAMP[4] }, { { 3, 6, 2 }, RAMP[4] },
+        { { 4, 5, 6 }, RAMP[5] }, { { 4, 6, 7 }, RAMP[5] },
 };
 
-static const vec3 tetra_verts[4] = {
+static const vec3 tetrahedron_verts[] = {
         {  1,  1,  1 }, {  1, -1, -1 }, { -1,  1, -1 }, { -1, -1,  1 },
 };
 
-static const tri tetra_tris[4] = {
-        { { 0, 1, 2 }, '.' },
-        { { 0, 3, 1 }, '-' },
-        { { 0, 2, 3 }, '#' },
-        { { 1, 3, 2 }, '@' },
+static const tri tetrahedron_tris[] = {
+        { { 0, 1, 2 }, RAMP[0] },
+        { { 0, 3, 1 }, RAMP[2] },
+        { { 0, 2, 3 }, RAMP[4] },
+        { { 1, 3, 2 }, RAMP[5] },
 };
 
-static const vec3 octa_verts[6] = {
+static const vec3 octahedron_verts[] = {
         { 1, 0, 0 }, { -1, 0, 0 },
         { 0, 0, 1 }, { 0, 0, -1 },
         { 0, 1, 0 }, { 0, -1, 0 },
 };
 
-static const tri octa_tris[8] = {
-        { { 2, 0, 4 }, '.' },
-        { { 5, 0, 2 }, ':' },
-        { { 4, 0, 3 }, '-' },
-        { { 3, 0, 5 }, '+' },
-        { { 4, 1, 2 }, '#' },
-        { { 2, 1, 5 }, '@' },
-        { { 3, 1, 4 }, '.' },
-        { { 5, 1, 3 }, ':' },
+static const tri octahedron_tris[] = {
+        { { 2, 0, 4 }, RAMP[0] },
+        { { 5, 0, 2 }, RAMP[1] },
+        { { 4, 0, 3 }, RAMP[2] },
+        { { 3, 0, 5 }, RAMP[3] },
+        { { 4, 1, 2 }, RAMP[4] },
+        { { 2, 1, 5 }, RAMP[5] },
+        { { 3, 1, 4 }, RAMP[0] },
+        { { 5, 1, 3 }, RAMP[1] },
 };
 
-static const vec3 icosa_verts[12] = {
-        { 0, 1, 1.61803399f }, { 0, 1, -1.61803399f },
-        { 0, -1, 1.61803399f }, { 0, -1, -1.61803399f },
-        { 1, 1.61803399f, 0 }, { 1, -1.61803399f, 0 },
-        { -1, 1.61803399f, 0 }, { -1, -1.61803399f, 0 },
-        { 1.61803399f, 0, 1 }, { 1.61803399f, 0, -1 },
-        { -1.61803399f, 0, 1 }, { -1.61803399f, 0, -1 },
+static const vec3 dodecahedron_verts[] = {
+        {  1,  1,  1 }, {  1,  1, -1 },
+        {  1, -1,  1 }, {  1, -1, -1 },
+        { -1,  1,  1 }, { -1,  1, -1 },
+        { -1, -1,  1 }, { -1, -1, -1 },
+        {  0,  IPHI,  PHI }, {  0,  IPHI, -PHI },
+        {  0, -IPHI,  PHI }, {  0, -IPHI, -PHI },
+        {  IPHI,  PHI, 0 }, {  IPHI, -PHI, 0 },
+        { -IPHI,  PHI, 0 }, { -IPHI, -PHI, 0 },
+        {  PHI, 0,  IPHI }, {  PHI, 0, -IPHI },
+        { -PHI, 0,  IPHI }, { -PHI, 0, -IPHI },
 };
 
-static const tri icosa_tris[20] = {
-        { { 8, 0, 2 }, '.' },
-        { { 2, 0, 10 }, ':' },
-        { { 6, 0, 4 }, '-' },
-        { { 4, 0, 8 }, '+' },
-        { { 10, 0, 6 }, '#' },
-        { { 3, 1, 9 }, '@' },
-        { { 11, 1, 3 }, '.' },
-        { { 4, 1, 6 }, ':' },
-        { { 9, 1, 4 }, '-' },
-        { { 6, 1, 11 }, '+' },
-        { { 5, 2, 7 }, '#' },
-        { { 8, 2, 5 }, '@' },
-        { { 7, 2, 10 }, '.' },
-        { { 7, 3, 5 }, ':' },
-        { { 5, 3, 9 }, '-' },
-        { { 11, 3, 7 }, '+' },
-        { { 9, 4, 8 }, '#' },
-        { { 8, 5, 9 }, '.' },
-        { { 10, 6, 11 }, '@' },
-        { { 11, 7, 10 }, ':' },
+static const tri dodecahedron_tris[] = {
+        { {  1, 12,  0 }, RAMP[0] }, { {  1,  0, 16 }, RAMP[0] }, { {  1, 16, 17 }, RAMP[0] },
+        { {  2, 16,  0 }, RAMP[1] }, { {  2,  0,  8 }, RAMP[1] }, { {  2,  8, 10 }, RAMP[1] },
+        { {  4,  8,  0 }, RAMP[2] }, { {  4,  0, 12 }, RAMP[2] }, { {  4, 12, 14 }, RAMP[2] },
+        { { 11,  9,  1 }, RAMP[3] }, { { 11,  1, 17 }, RAMP[3] }, { { 11, 17,  3 }, RAMP[3] },
+        { { 14, 12,  1 }, RAMP[4] }, { { 14,  1,  9 }, RAMP[4] }, { { 14,  9,  5 }, RAMP[4] },
+        { { 17, 16,  2 }, RAMP[5] }, { { 17,  2, 13 }, RAMP[5] }, { { 17, 13,  3 }, RAMP[5] },
+        { { 15, 13,  2 }, RAMP[0] }, { { 15,  2, 10 }, RAMP[0] }, { { 15, 10,  6 }, RAMP[0] },
+        { {  7, 11,  3 }, RAMP[1] }, { {  7,  3, 13 }, RAMP[1] }, { {  7, 13, 15 }, RAMP[1] },
+        { { 19, 18,  4 }, RAMP[3] }, { { 19,  4, 14 }, RAMP[3] }, { { 19, 14,  5 }, RAMP[3] },
+        { { 10,  8,  4 }, RAMP[4] }, { { 10,  4, 18 }, RAMP[4] }, { { 10, 18,  6 }, RAMP[4] },
+        { {  7, 19,  5 }, RAMP[2] }, { {  7,  5,  9 }, RAMP[2] }, { {  7,  9, 11 }, RAMP[2] },
+        { {  7, 15,  6 }, RAMP[5] }, { {  7,  6, 18 }, RAMP[5] }, { {  7, 18, 19 }, RAMP[5] },
 };
 
-static const vec3 dodeca_verts[20] = {
-        { 1, 1, 1 }, { 1, 1, -1 },
-        { 1, -1, 1 }, { 1, -1, -1 },
-        { -1, 1, 1 }, { -1, 1, -1 },
-        { -1, -1, 1 }, { -1, -1, -1 },
-        { 0, 0.61803399f, 1.61803399f }, { 0, 0.61803399f, -1.61803399f },
-        { 0, -0.61803399f, 1.61803399f }, { 0, -0.61803399f, -1.61803399f },
-        { 0.61803399f, 1.61803399f, 0 }, { 0.61803399f, -1.61803399f, 0 },
-        { -0.61803399f, 1.61803399f, 0 }, { -0.61803399f, -1.61803399f, 0 },
-        { 1.61803399f, 0, 0.61803399f }, { 1.61803399f, 0, -0.61803399f },
-        { -1.61803399f, 0, 0.61803399f }, { -1.61803399f, 0, -0.61803399f },
+static const vec3 icosahedron_verts[] = {
+        { 0,  1,  PHI }, { 0,  1, -PHI },
+        { 0, -1,  PHI }, { 0, -1, -PHI },
+        {  1,  PHI, 0 }, {  1, -PHI, 0 },
+        { -1,  PHI, 0 }, { -1, -PHI, 0 },
+        {  PHI, 0,  1 }, {  PHI, 0, -1 },
+        { -PHI, 0,  1 }, { -PHI, 0, -1 },
 };
 
-static const tri dodeca_tris[36] = {
-        { { 1, 12, 0 }, '.' }, { { 1, 0, 16 }, '.' }, { { 1, 16, 17 }, '.' },
-        { { 2, 16, 0 }, ':' }, { { 2, 0, 8 }, ':' }, { { 2, 8, 10 }, ':' },
-        { { 4, 8, 0 }, '-' }, { { 4, 0, 12 }, '-' }, { { 4, 12, 14 }, '-' },
-        { { 11, 9, 1 }, '+' }, { { 11, 1, 17 }, '+' }, { { 11, 17, 3 }, '+' },
-        { { 14, 12, 1 }, '#' }, { { 14, 1, 9 }, '#' }, { { 14, 9, 5 }, '#' },
-        { { 17, 16, 2 }, '@' }, { { 17, 2, 13 }, '@' }, { { 17, 13, 3 }, '@' },
-        { { 15, 13, 2 }, '.' }, { { 15, 2, 10 }, '.' }, { { 15, 10, 6 }, '.' },
-        { { 7, 11, 3 }, ':' }, { { 7, 3, 13 }, ':' }, { { 7, 13, 15 }, ':' },
-        { { 19, 18, 4 }, '+' }, { { 19, 4, 14 }, '+' }, { { 19, 14, 5 }, '+' },
-        { { 10, 8, 4 }, '#' }, { { 10, 4, 18 }, '#' }, { { 10, 18, 6 }, '#' },
-        { { 7, 19, 5 }, '-' }, { { 7, 5, 9 }, '-' }, { { 7, 9, 11 }, '-' },
-        { { 7, 15, 6 }, '@' }, { { 7, 6, 18 }, '@' }, { { 7, 18, 19 }, '@' },
+static const tri icosahedron_tris[] = {
+        { {  8,  0,  2 }, RAMP[0] },
+        { {  2,  0, 10 }, RAMP[1] },
+        { {  6,  0,  4 }, RAMP[2] },
+        { {  4,  0,  8 }, RAMP[3] },
+        { { 10,  0,  6 }, RAMP[4] },
+        { {  3,  1,  9 }, RAMP[5] },
+        { { 11,  1,  3 }, RAMP[0] },
+        { {  4,  1,  6 }, RAMP[1] },
+        { {  9,  1,  4 }, RAMP[2] },
+        { {  6,  1, 11 }, RAMP[3] },
+        { {  5,  2,  7 }, RAMP[4] },
+        { {  8,  2,  5 }, RAMP[5] },
+        { {  7,  2, 10 }, RAMP[0] },
+        { {  7,  3,  5 }, RAMP[1] },
+        { {  5,  3,  9 }, RAMP[2] },
+        { { 11,  3,  7 }, RAMP[3] },
+        { {  9,  4,  8 }, RAMP[4] },
+        { {  8,  5,  9 }, RAMP[0] },
+        { { 10,  6, 11 }, RAMP[5] },
+        { { 11,  7, 10 }, RAMP[1] },
 };
+
+#define COUNT(a) (sizeof (a) / sizeof *(a))
+
+#define SHAPE(id, r) { #id, id##_verts, id##_tris, COUNT(id##_verts), COUNT(id##_tris), (r) }
+
+static_assert(COUNT(cube_verts)         <= MESH_MAX_VERTS);
+static_assert(COUNT(tetrahedron_verts)  <= MESH_MAX_VERTS);
+static_assert(COUNT(octahedron_verts)   <= MESH_MAX_VERTS);
+static_assert(COUNT(dodecahedron_verts) <= MESH_MAX_VERTS);
+static_assert(COUNT(icosahedron_verts)  <= MESH_MAX_VERTS);
 
 const mesh shapes[] = {
-        { "cube",         cube_verts,    8, cube_tris,   12 },
-        { "tetrahedron",  tetra_verts,   4, tetra_tris,   4 },
-        { "octahedron",   octa_verts,    6, octa_tris,    8 },
-        { "dodecahedron", dodeca_verts, 20, dodeca_tris, 36 },
-        { "icosahedron",  icosa_verts,  12, icosa_tris,  20 },
+        SHAPE(cube,         RADIUS_SQRT3),
+        SHAPE(tetrahedron,  RADIUS_SQRT3),
+        SHAPE(octahedron,   1.0f),
+        SHAPE(dodecahedron, RADIUS_SQRT3),
+        SHAPE(icosahedron,  RADIUS_ICOSA),
 };
 
-const size_t nshapes = sizeof shapes / sizeof shapes[0];
+const size_t nshapes = COUNT(shapes);
 
 const mesh *shape_find(const char *name) {
         for (size_t i = 0; i < nshapes; i++)
                 if (strcmp(shapes[i].name, name) == 0)
                         return &shapes[i];
 
-        return NULL;
-}
-
-float mesh_radius(const mesh *m) {
-        float r2 = 0.0f;
-
-        for (size_t i = 0; i < m->nverts; i++) {
-                const vec3 v = m->verts[i];
-                const float d2 = v.x * v.x + v.y * v.y + v.z * v.z;
-
-                if (d2 > r2)
-                        r2 = d2;
-        }
-
-        return sqrtf(r2);
+        return nullptr;
 }
