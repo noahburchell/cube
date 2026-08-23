@@ -63,7 +63,6 @@ distro support status:
   - everything else ❌
 
 ### if you're on a different distro:
-
 you have to build it
 
 dependencies:
@@ -71,11 +70,36 @@ dependencies:
   - make
   - gcc 14+ (or clang 19+)
 
-building:
-```sh
+
+#### get the source
+grab the release tarball:
+
+```
+curl -LO https://github.com/noahburchell/cube/archive/refs/tags/v1.1.1.tar.gz
+tar xf v1.1.1.tar.gz
+cd cube-1.1.1
+```
+
+or clone the repo:
+
+```
+git clone --depth 1  https://github.com/noahburchell/cube.git
+cd cube
+```
+
+#### build it
+
+```
 make -j$(nproc)
-make install
+sudo make install
 cube --help
+```
+
+`make install` puts the binary in `/usr/bin` by default. so if you don't have root, or you
+just don't want it there:
+
+```
+make install PREFIX="$HOME/.local" # make sure its in path
 ```
 
 # DEMO:
