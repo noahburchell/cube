@@ -14,8 +14,6 @@ shapes:
   --icosahedron
 ```
 
-![demo](docs/demo.gif)
-
 q or esc quits.
 
 ### if you're on gentoo:
@@ -76,4 +74,6 @@ dependencies:
 building:
   - run 'make' then 'make install'
 
+# DEMO:
+![demo](docs/demo.gif)
 licence: GPLv3
