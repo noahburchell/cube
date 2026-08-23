@@ -80,4 +80,8 @@ cube --help
 
 # DEMO:
 ![demo](docs/demo.gif)
+
+are you unhappy with the charachters i chose for shading?
+change them in shapes.c, it should be clear how to do so
+
 licence: GPLv3
