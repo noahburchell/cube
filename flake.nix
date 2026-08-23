@@ -10,8 +10,6 @@
       systems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = fn: nixpkgs.lib.genAttrs systems (system: fn nixpkgs.legacyPackages.${system});
 
-      # Takes the pkgs it builds against, so the overlay below can build with
-      # the nixpkgs it is applied to instead of the one pinned here.
       mkCube =
         pkgs:
         let
@@ -31,17 +29,13 @@
           };
 
           strictDeps = true;
-          # build/%.o takes build/ as an order-only prereq, so -j is safe.
           enableParallelBuilding = true;
 
-          # install -Dm755 $(DESTDIR)$(BINDIR)/cube, with BINDIR = PREFIX/bin.
-          # $(out) stays make syntax on purpose: make reads out from the env.
           makeFlags = [ "PREFIX=$(out)" ];
 
           meta = {
             description = "spinning cube (and the other platonic solids) for your terminal";
             homepage = "https://github.com/noahburchell/cube";
-            # No per-file headers granting "or later", so: version 3 exactly.
             license = lib.licenses.gpl3Only;
             mainProgram = "cube";
             platforms = systems;
