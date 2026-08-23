@@ -61,6 +61,7 @@ make
 distro support status:
   - gentoo ✅
   - nix ✅
+  - arch ❔ (i made the PKGBUILD, but AUR account registrations are closed)
   - everything else ❌
 
 ### if you're on a different distro:
