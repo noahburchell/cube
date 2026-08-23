@@ -26,8 +26,14 @@ emaint sync --repo noahburchell
 emerge --ask app-misc/cube
 cube --help
 ```
+### if your on nix:
+```sh
+the flake is there
+```
+
 distro support status:
   - gentoo ✅
+  - nix ✅
   - everything else ❌
 
 ### if you're on a different distro:
