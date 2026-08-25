@@ -102,10 +102,15 @@ just don't want it there:
 make install PREFIX="$HOME/.local" # make sure its in path
 ```
 
-# DEMO:
+### configuration
+
+are you unhappy with the characters i chose for shading?
+  - change them in shapes.c, it should be clear how to do so
+do you want the shapes to spin faster/slower?
+  - spin period was chosen for a reason. changing it may introduce stutter
+
+### demo
+
 ![demo](docs/demo.gif)
 
-are you unhappy with the charachters i chose for shading?
-change them in shapes.c, it should be clear how to do so
-
-licence: GPLv3
+GNU General Public Licence v3.0
