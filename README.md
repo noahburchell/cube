@@ -113,4 +113,10 @@ do you want the shapes to spin faster/slower?
 
 ![demo](docs/demo.gif)
 
+### contact
+
+if you have any questions contact me: cube@nburch.org
+
+### license
+
 GNU General Public Licence v3.0
