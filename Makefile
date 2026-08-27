@@ -25,8 +25,6 @@ CC_CANDIDATES := gcc clang cc gcc-15 gcc-14 clang-21 clang-20 clang-19 \
 CC_IS_SET     := $(filter-out default undefined file,$(origin CC))
 GOALS         := $(if $(MAKECMDGOALS),$(MAKECMDGOALS),all)
 
-# probe the C23 features actually used, not just whether -std= is accepted:
-# clang 18 and apple clang 16 take -std=gnu23 but have no constexpr.
 CC_PROBE := \#include <stddef.h>\n\#include <stdckdint.h>\nconstexpr int N = 1000;\nstatic_assert(N == 1000);\n[[maybe_unused]] static void *p = nullptr;\nint main(void){size_t r;struct{int a;}s={};return ckd_mul(&r,(size_t)N,(size_t)2)||s.a;}\n
 
 cc-ok = $(shell printf '$(CC_PROBE)' \
