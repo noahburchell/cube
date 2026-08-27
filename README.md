@@ -30,7 +30,7 @@ cube --help
 
 ### if you have brew:
 ```sh
-brew install noahburchell/cube/cube # i havent been able to test this yet, i will withinh the next hour, so if youre seeing this hi
+brew install noahburchell/cube/cube
 ```
 
 ### if you have nix:
@@ -65,9 +65,15 @@ nix develop
 make
 ```
 
+os support status:
+  - linux ✅
+  - macos ✅
+  - windows ❌
+
 distro packaging status:
   - gentoo ✅
-  - nix ✅ (linux and macos)
+  - brew ✅
+  - nix ✅
   - arch ❔ (i made the PKGBUILD, but AUR account registrations are closed)
   - everything else ❌
 
