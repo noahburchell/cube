@@ -19,8 +19,6 @@ shapes:
 q or esc quits
 ```
 
-q or esc quits.
-
 ### if you're on gentoo:
 ```sh
 emerge --ask app-eselect/eselect-repository
@@ -29,7 +27,7 @@ emaint sync --repo noahburchell
 emerge --ask app-misc/cube
 cube --help
 ```
-### if you're on nix:
+### if you have nix (linux or macos):
 
 run it without installing anything:
 ```sh
@@ -55,25 +53,45 @@ or add it to a flake:
 }
 ```
 
-hacking on it (drops you in a shell with gcc, make, bear, clangd and gdb):
+hacking it (drops you in a shell with a compiler, make, bear, clangd and a debugger):
 ```sh
 nix develop
 make
 ```
 
-distro support status:
+distro packaging status:
   - gentoo ✅
-  - nix ✅
+  - nix ✅ (linux and macos)
   - arch ❔ (i made the PKGBUILD, but AUR account registrations are closed)
   - everything else ❌
 
-### if you're on a different distro:
+### if you're on something else (apart from windows):
 you have to build it
 
 dependencies:
-  - linux
-  - make
-  - gcc 14+ (or clang 19+)
+  - linux, macos, or a bsd
+  - gnu make (`gmake` on the bsds)
+  - gcc 14+ or clang 19+
+
+#### macos
+
+you need xcode 16.3+ (apple clang 17). older xcode accepts `-std=gnu23`
+but has no c23 `constexpr`, so the build will fail. if that happens:
+
+```sh
+brew install llvm
+make CC="$(brew --prefix llvm)/bin/clang"
+```
+
+homebrew `gcc` works too.
+
+#### bsd
+
+run `gmake`, not `make`.
+
+freebsd 14.2+ has a new enough clang in base. on openbsd and netbsd, install one
+from packages/pkgsrc and the makefile will find it on its own: it looks for
+`clang19`, `clang20`, `gcc14`, `gcc15` and `egcc` on path.
 
 
 #### get the source
@@ -95,7 +113,7 @@ cd cube
 #### build it
 
 ```
-make -j$(nproc)
+make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
 sudo make install
 cube --help
 ```

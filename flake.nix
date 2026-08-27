@@ -6,8 +6,7 @@
   outputs =
     { self, nixpkgs }:
     let
-      # termios, poll and TIOCGWINSZ, per the README's "dependencies: linux".
-      systems = [ "x86_64-linux" "aarch64-linux" ];
+      systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
       forAllSystems = fn: nixpkgs.lib.genAttrs systems (system: fn nixpkgs.legacyPackages.${system});
 
       mkCube =
@@ -68,7 +67,7 @@
           packages = [
             pkgs.bear
             pkgs.clang-tools
-            pkgs.gdb
+            (if pkgs.stdenv.hostPlatform.isDarwin then pkgs.lldb else pkgs.gdb)
           ];
         };
       });

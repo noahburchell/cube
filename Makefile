@@ -20,28 +20,35 @@ SRC     := $(wildcard src/*.c)
 OBJ     := $(SRC:src/%.c=build/%.o)
 DEP     := $(OBJ:.o=.d)
 
-CC_CANDIDATES := gcc clang cc gcc-15 gcc-14 clang-21 clang-20 clang-19
+CC_CANDIDATES := gcc clang cc gcc-15 gcc-14 clang-21 clang-20 clang-19 \
+                 gcc15 gcc14 clang20 clang19 egcc
 CC_IS_SET     := $(filter-out default undefined file,$(origin CC))
 GOALS         := $(if $(MAKECMDGOALS),$(MAKECMDGOALS),all)
 
-cc-has-std = $(shell echo 'int main(void){return 0;}' \
-               | $(1) -std=$(STD) -fsyntax-only -x c - >/dev/null 2>&1 && echo $(1))
+# probe the C23 features actually used, not just whether -std= is accepted:
+# clang 18 and apple clang 16 take -std=gnu23 but have no constexpr.
+CC_PROBE := \#include <stddef.h>\n\#include <stdckdint.h>\nconstexpr int N = 1000;\nstatic_assert(N == 1000);\n[[maybe_unused]] static void *p = nullptr;\nint main(void){size_t r;struct{int a;}s={};return ckd_mul(&r,(size_t)N,(size_t)2)||s.a;}\n
+
+cc-ok = $(shell printf '$(CC_PROBE)' \
+          | $(1) -std=$(STD) -fsyntax-only -x c - >/dev/null 2>&1 && echo $(1))
 
 ifneq ($(filter-out clean,$(GOALS)),)
 
 ifneq ($(CC_IS_SET),)
-ifeq ($(call cc-has-std,$(CC)),)
-$(error $(CC) does not support -std=$(STD): C23 needs gcc >= 14 or clang >= 19)
+ifeq ($(call cc-ok,$(CC)),)
+$(error $(CC) lacks the C23 features cube uses (constexpr, stdckdint.h): \
+        needs gcc >= 14 or clang >= 19)
 endif
 else
 CC := $(shell for c in $(CC_CANDIDATES); do \
-                echo 'int main(void){return 0;}' \
+                printf '$(CC_PROBE)' \
                   | "$$c" -std=$(STD) -fsyntax-only -x c - >/dev/null 2>&1 \
                   && { echo "$$c"; break; }; \
               done)
 ifeq ($(CC),)
-$(error no compiler supporting -std=$(STD) found: C23 needs gcc >= 14 or clang >= 19 \
-        (tried $(CC_CANDIDATES)); override with 'make CC=/path/to/cc')
+$(error no compiler with the C23 features cube uses (constexpr, stdckdint.h) found: \
+        needs gcc >= 14 or clang >= 19 (tried $(CC_CANDIDATES)); \
+        override with 'make CC=/path/to/cc')
 endif
 endif
 
@@ -59,7 +66,8 @@ build:
 	mkdir -p build
 
 install: $(BIN)
-	install -Dm755 $(BIN) $(DESTDIR)$(BINDIR)/$(BIN)
+	mkdir -p $(DESTDIR)$(BINDIR)
+	install -m 755 $(BIN) $(DESTDIR)$(BINDIR)/$(BIN)
 
 clean:
 	rm -rf build $(BIN)

@@ -1,5 +1,3 @@
-#define _GNU_SOURCE
-
 #include <errno.h>
 #include <math.h>
 #include <poll.h>
@@ -128,11 +126,9 @@ static void on_cont([[maybe_unused]] int sig) {
 }
 
 static mat3 rotation(float ax, float ay, float az) {
-        float sa, ca, sb, cb, sc, cc;
-
-        sincosf(ax, &sa, &ca);
-        sincosf(ay, &sb, &cb);
-        sincosf(az, &sc, &cc);
+        const float sa = sinf(ax), ca = cosf(ax);
+        const float sb = sinf(ay), cb = cosf(ay);
+        const float sc = sinf(az), cc = cosf(az);
 
         return (mat3){
                 .cx = { cb * cc,                cb * sc,                -sb     },
@@ -284,6 +280,29 @@ static int quit_requested(void) {
                         return 1;
 
         return 0;
+}
+
+static void sleep_until(const struct timespec *deadline) {
+#if defined(_POSIX_CLOCK_SELECTION) && _POSIX_CLOCK_SELECTION > 0
+        clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, deadline, nullptr);
+#else
+        // no clock_nanosleep on mac
+        struct timespec now, d;
+
+        if (clock_gettime(CLOCK_MONOTONIC, &now) != 0)
+                return;
+
+        d.tv_sec  = deadline->tv_sec  - now.tv_sec;
+        d.tv_nsec = deadline->tv_nsec - now.tv_nsec;
+
+        if (d.tv_nsec < 0) {
+                d.tv_nsec += 1'000'000'000L;
+                d.tv_sec--;
+        }
+
+        if (d.tv_sec >= 0 && (d.tv_sec || d.tv_nsec))
+                nanosleep(&d, nullptr);
+#endif
 }
 
 static void usage(FILE *out, const char *prog) {
@@ -459,7 +478,7 @@ int main(int argc, char **argv) {
                         next.tv_nsec -= 1'000'000'000L;
                         next.tv_sec++;
                 }
-                clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next, nullptr);
+                sleep_until(&next);
         }
 
         term_restore();
