@@ -148,7 +148,9 @@ do you want the shapes to spin faster/slower?
 
 ### demo
 
-![demo](docs/demo.gif)
+demo? just install it! you will like it im sure
+
+seriously, the demo gif is outdated and i havent gotten around to updating it. it will be updated soon
 
 ### contact
 
