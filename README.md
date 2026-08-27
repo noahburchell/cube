@@ -70,7 +70,7 @@ you have to build it
 
 dependencies:
   - linux, macos, or a bsd
-  - gnu make (`gmake` on the bsds)
+  - make (`gmake` on the bsds)
   - gcc 14+ or clang 19+
 
 #### macos
