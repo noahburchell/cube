@@ -98,9 +98,9 @@ from packages/pkgsrc and the makefile will find it on its own: it looks for
 grab the release tarball:
 
 ```
-curl -LO https://github.com/noahburchell/cube/archive/refs/tags/v1.1.1.tar.gz
-tar xf v1.1.1.tar.gz
-cd cube-1.1.1
+curl -LO https://github.com/noahburchell/cube/archive/refs/tags/v1.2.tar.gz
+tar xf v1.2.tar.gz
+cd cube-1.2
 ```
 
 or clone the repo:
