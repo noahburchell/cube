@@ -1,11 +1,10 @@
 #define _GNU_SOURCE
 
 #include <errno.h>
-#include <limits.h>
 #include <math.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <termios.h>
 #include <time.h>
@@ -47,20 +46,37 @@ static volatile sig_atomic_t running = 1;
 static volatile sig_atomic_t caught;
 
 static void emit(const char *s, size_t n) {
+        constexpr int STALLS_MAX = 64;
+
+        int stalls = 0;
+
         while (n) {
                 ssize_t k = write(STDOUT_FILENO, s, n);
-                if (k <= 0) {
-                        if (k < 0 && errno == EINTR)
-                                continue;
-                        return;
+
+                if (k > 0) {
+                        s += (size_t)k;
+                        n -= (size_t)k;
+                        continue;
                 }
-                s += k;
-                n -= (size_t)k;
+                if (k == 0)
+                        return;
+                if (errno == EINTR)
+                        continue;
+                if (errno != EAGAIN)
+                        return;
+
+                // wait briefly for room then give up
+                if (++stalls > STALLS_MAX)
+                        return;
+
+                struct pollfd pfd = { .fd = STDOUT_FILENO, .events = POLLOUT };
+                if (poll(&pfd, 1, 20) < 0 && errno != EINTR)
+                        return;
         }
 }
 
 static struct termios saved_term;
-static int term_saved;
+static volatile sig_atomic_t term_saved;
 
 static void term_setup(void) {
         if (tcgetattr(STDIN_FILENO, &saved_term) == 0) {
@@ -90,16 +106,25 @@ static void on_quit(int sig) {
         running = 0;
 }
 
+
 static void on_stop(int sig) {
+        const int saved_errno = errno; // "errno" sounds kinda cute
+
         term_restore();
         install(sig, SIG_DFL, 0);
         raise(sig);
+
+        errno = saved_errno;
 }
 
 static void on_cont([[maybe_unused]] int sig) {
+        const int saved_errno = errno;
+
         term_setup();
         mark_resize();
         install(SIGTSTP, on_stop, 0);
+
+        errno = saved_errno;
 }
 
 static mat3 rotation(float ax, float ay, float az) {
@@ -261,78 +286,117 @@ static int quit_requested(void) {
         return 0;
 }
 
-static int parse_dim(const char *s, int *out) {
-        char *end;
-
-        errno = 0;
-        long v = strtol(s, &end, 10);
-
-        if (end == s || *end != '\0' || errno == ERANGE || v <= 0 || v > INT_MAX)
-                return 1;
-
-        *out = (int)v;
-        return 0;
-}
-
 static void usage(FILE *out, const char *prog) {
-        fprintf(out, "usage: %s [--shape]\n\nshapes:\n", prog);
+        int width = (int)sizeof "help" - 1;
+
+        for (size_t i = 0; i < nshapes; i++) {
+                const int n = (int)strlen(shapes[i].name);
+                if (n > width)
+                        width = n;
+        }
+        width += 2;
+
+        fprintf(out, "usage: %s [option]\n\noptions:\n  -h, --%-*sshow this help\n\nshapes:\n",
+                prog, width, "help");
 
         for (size_t i = 0; i < nshapes; i++)
-                fprintf(out, "  --%s%s\n", shapes[i].name, i == 0 ? " (default)" : "");
+                if (i == 0)
+                        fprintf(out, "  -%c, --%-*s(default)\n",
+                                shapes[i].opt, width, shapes[i].name);
+                else
+                        fprintf(out, "  -%c, --%s\n", shapes[i].opt, shapes[i].name);
+
+        fputs("\nq or esc quits\n", out);
+}
+
+static int bad_arg(const char *prog, const char *kind, const char *arg) {
+        fprintf(stderr, "%s: %s '%s'\n\n", prog, kind, arg);
+        usage(stderr, prog);
+
+        return 1;
+}
+
+static int parse_args(int argc, char **argv, const char *prog, const mesh **shape) {
+        bool opts = true;
+
+        for (int i = 1; i < argc; i++) {
+                const char *arg = argv[i];
+
+                if (!arg)
+                        break;
+
+                if (!opts || arg[0] != '-')
+                        return bad_arg(prog, "unexpected argument", arg);
+
+                if (arg[1] == '\0')
+                        return bad_arg(prog, "unknown option", arg);
+
+                if (arg[1] == '-') {
+                        if (arg[2] == '\0') {
+                                opts = false;
+                                continue;
+                        }
+
+                        if (strcmp(arg + 2, "help") == 0) {
+                                usage(stdout, prog);
+                                return -1;
+                        }
+
+                        const mesh *m = shape_find_name(arg + 2);
+                        if (!m)
+                                return bad_arg(prog, "unknown option", arg);
+
+                        *shape = m;
+                        continue;
+                }
+
+                if (arg[2] != '\0')
+                        return bad_arg(prog, "unknown option", arg);
+
+                if (arg[1] == 'h') {
+                        usage(stdout, prog);
+                        return -1;
+                }
+
+                const mesh *m = shape_find_opt(arg[1]);
+                if (!m)
+                        return bad_arg(prog, "unknown option", arg);
+
+                *shape = m;
+        }
+
+        return 0;
 }
 
 int main(int argc, char **argv) {
         window win;
 
+        const char *prog = argc > 0 && argv && argv[0] && argv[0][0] ? argv[0] : "cube";
         const mesh *shape = &shapes[0];
-        int dim[2], ndim = 0;
 
-        for (int i = 1; i < argc; i++) {
-                if (strncmp(argv[i], "--", 2) == 0) {
-                        if (strcmp(argv[i], "--help") == 0) {
-                                usage(stdout, argv[0]);
-                                return 0;
-                        }
-
-                        const mesh *m = shape_find(argv[i] + 2);
-                        if (!m) {
-                                fprintf(stderr, "cube: unknown option '%s'\n\n", argv[i]);
-                                usage(stderr, argv[0]);
-                                return 1;
-                        }
-                        shape = m;
-                } else if (ndim < 2) {
-                        if (parse_dim(argv[i], &dim[ndim])) {
-                                fprintf(stderr, "cube: invalid dimension '%s'\n\n", argv[i]);
-                                usage(stderr, argv[0]);
-                                return 1;
-                        }
-                        ndim++;
-                } else {
-                        fprintf(stderr, "cube: unexpected argument '%s'\n\n", argv[i]);
-                        usage(stderr, argv[0]);
-                        return 1;
-                }
-        }
-
-        if (ndim == 1) {
-                fprintf(stderr, "cube: both a width and a height are required\n\n");
-                usage(stderr, argv[0]);
-                return 1;
+        switch (parse_args(argc, argv, prog, &shape)) {
+        case 0:  break;
+        case -1: return fflush(stdout) != 0; // --help but the write couldve failed
+        default: return 1;
         }
 
         if (!isatty(STDOUT_FILENO)) {
-                fprintf(stderr, "cube: stdout is not a terminal\n");
+                fprintf(stderr, "%s: stdout is not a terminal\n", prog);
                 return 1;
         }
 
-        if (ndim == 2 ? init_win(&win, dim[0], dim[1]) : init_win_auto(&win)) {
-                fprintf(stderr, "cube: %s\n", win_error());
+        if (init_win(&win)) {
+                fprintf(stderr, "%s: %s\n", prog, win_error());
                 return 1;
         }
+
+        if (win_guessed())
+                fprintf(stderr, "%s: terminal would not report its size, falling back to %dx%d\n",
+                        prog, win.width, win.height);
 
         if (watch_resize())
-                fprintf(stderr, "cube: failed to install SIGWINCH handler, resizing will not track\n");
+                fprintf(stderr, "%s: failed to install SIGWINCH handler, resizing will not track\n",
+                        prog);
 
         install(SIGINT,  on_quit, 0);
         install(SIGTERM, on_quit, 0);
@@ -349,7 +413,7 @@ int main(int argc, char **argv) {
         pvert pv[MESH_MAX_VERTS];
         float scale = fit_scale(&win, shape->radius);
 
-        struct timespec start, next;
+        struct timespec start = {}, next;
         clock_gettime(CLOCK_MONOTONIC, &start);
         next = start;
 
@@ -367,14 +431,16 @@ int main(int argc, char **argv) {
                 }
 
                 struct timespec now;
-                clock_gettime(CLOCK_MONOTONIC, &now);
+                if (clock_gettime(CLOCK_MONOTONIC, &now) != 0)
+                        now = next; // cant fail here, but never read it unset
 
                 const double elapsed = (double)(now.tv_sec - start.tv_sec)
                                      + (double)(now.tv_nsec - start.tv_nsec) * 1e-9;
 
-                long behind = (long)(now.tv_sec - next.tv_sec) * 1'000'000'000L
-                            + (now.tv_nsec - next.tv_nsec);
-                if (behind > FRAME_NS)
+                const time_t bsec  = now.tv_sec - next.tv_sec;
+                const long   bnsec = now.tv_nsec - next.tv_nsec;
+
+                if (bsec > 1 || (bsec >= 0 && (long)bsec * 1'000'000'000L + bnsec > FRAME_NS))
                         next = now;
 
                 clear_win(&win);
@@ -400,7 +466,7 @@ int main(int argc, char **argv) {
         destroy_win(&win);
 
         if (err)
-                fprintf(stderr, "cube: %s\n", err);
+                fprintf(stderr, "%s: %s\n", prog, err);
 
         if (caught) {
                 install((int)caught, SIG_DFL, 0);

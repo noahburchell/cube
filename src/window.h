@@ -13,8 +13,9 @@ typedef struct window {
 
 const char *win_error(void);
 
-int init_win_auto(window *win);
-int init_win(window *win, int w, int h);
+bool win_guessed(void);
+
+int init_win(window *win);
 
 void destroy_win(window *win);
 

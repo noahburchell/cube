@@ -4,7 +4,6 @@
 #include <poll.h>
 #include <signal.h>
 #include <stdckdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
@@ -15,11 +14,15 @@
 constexpr int FALLBACK_COLS = 100;
 constexpr int FALLBACK_ROWS = 50;
 
+constexpr int MAX_COLS = 4096;
+constexpr int MAX_ROWS = 4096;
+
 constexpr size_t MOVE_MAX = 24;
 
 static volatile sig_atomic_t resized;
 
 static const char *win_err;
+static bool guessed;
 
 const char *win_error(void) {
         return win_err ? win_err : "unknown window error";
@@ -63,24 +66,23 @@ static int query_size(int *w, int *h) {
         if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != 0 || ws.ws_col == 0 || ws.ws_row == 0)
                 return 1;
 
-        *w = ws.ws_col;
-        *h = ws.ws_row;
+        *w = ws.ws_col > MAX_COLS ? MAX_COLS : ws.ws_col;
+        *h = ws.ws_row > MAX_ROWS ? MAX_ROWS : ws.ws_row;
         return 0;
 }
 
-int init_win_auto(window *win) {
+bool win_guessed(void) {
+        return guessed;
+}
+
+int init_win(window *win) {
         int w, h;
         if (query_size(&w, &h)) {
-                fprintf(stderr, "cube: failed to fetch window dimensions, falling back to %dx%d\n",
-                        FALLBACK_COLS, FALLBACK_ROWS);
+                guessed = true;
                 w = FALLBACK_COLS;
                 h = FALLBACK_ROWS;
         }
 
-        return init_win(win, w, h);
-}
-
-int init_win(window *win, int w, int h) {
         if (alloc_win(win, w, h))
                 return 1;
 

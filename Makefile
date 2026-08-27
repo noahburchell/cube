@@ -5,6 +5,12 @@ override CFLAGS += -std=$(STD) -Wall -Wextra -Isrc -MMD -MP
 LDFLAGS ?=
 LDLIBS  := -lm
 
+SAN ?=
+ifneq ($(SAN),)
+override CFLAGS  += -fsanitize=$(SAN) -fno-omit-frame-pointer -fno-sanitize-recover=all -g -O1
+override LDFLAGS += -fsanitize=$(SAN)
+endif
+
 PREFIX  ?= /usr
 BINDIR  ?= $(PREFIX)/bin
 DESTDIR ?=

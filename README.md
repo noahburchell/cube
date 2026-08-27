@@ -4,14 +4,19 @@ spinning cube (and the other platonic solids)
 
 ### usage
 ```sh
-usage: cube [--shape]
+usage: cube [option]
+
+options:
+  -h, --help          show this help
 
 shapes:
-  --cube (default)
-  --tetrahedron
-  --octahedron
-  --dodecahedron
-  --icosahedron
+  -c, --cube          (default)
+  -t, --tetrahedron
+  -o, --octahedron
+  -d, --dodecahedron
+  -i, --icosahedron
+
+q or esc quits
 ```
 
 q or esc quits.

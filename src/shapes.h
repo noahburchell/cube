@@ -15,6 +15,7 @@ typedef struct tri {
 
 typedef struct mesh {
         const char *name;
+        char opt;
         const vec3 *verts;
         const tri *tris;
         uint8_t nverts, ntris;
@@ -27,6 +28,7 @@ constexpr float  MESH_MAX_RADIUS = 1.9021131f;
 extern const mesh shapes[];
 extern const size_t nshapes;
 
-const mesh *shape_find(const char *name);
+const mesh *shape_find_name(const char *name);
+const mesh *shape_find_opt(char opt);
 
 #endif

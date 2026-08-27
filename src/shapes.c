@@ -119,27 +119,40 @@ static const tri icosahedron_tris[] = {
 
 #define COUNT(a) (sizeof (a) / sizeof *(a))
 
-#define SHAPE(id, r) { #id, id##_verts, id##_tris, COUNT(id##_verts), COUNT(id##_tris), (r) }
+#define SHAPE(id, o, r) \
+        { #id, (o), id##_verts, id##_tris, COUNT(id##_verts), COUNT(id##_tris), (r) }
 
-static_assert(COUNT(cube_verts)         <= MESH_MAX_VERTS);
-static_assert(COUNT(tetrahedron_verts)  <= MESH_MAX_VERTS);
-static_assert(COUNT(octahedron_verts)   <= MESH_MAX_VERTS);
-static_assert(COUNT(dodecahedron_verts) <= MESH_MAX_VERTS);
-static_assert(COUNT(icosahedron_verts)  <= MESH_MAX_VERTS);
+#define CHECK_SHAPE(id) \
+        static_assert(COUNT(id##_verts) <= MESH_MAX_VERTS); \
+        static_assert(COUNT(id##_tris)  <= UINT8_MAX)
+
+CHECK_SHAPE(cube);
+CHECK_SHAPE(tetrahedron);
+CHECK_SHAPE(octahedron);
+CHECK_SHAPE(dodecahedron);
+CHECK_SHAPE(icosahedron);
 
 const mesh shapes[] = {
-        SHAPE(cube,         RADIUS_SQRT3),
-        SHAPE(tetrahedron,  RADIUS_SQRT3),
-        SHAPE(octahedron,   1.0f),
-        SHAPE(dodecahedron, RADIUS_SQRT3),
-        SHAPE(icosahedron,  RADIUS_ICOSA),
+        SHAPE(cube,         'c', RADIUS_SQRT3),
+        SHAPE(tetrahedron,  't', RADIUS_SQRT3),
+        SHAPE(octahedron,   'o', 1.0f),
+        SHAPE(dodecahedron, 'd', RADIUS_SQRT3),
+        SHAPE(icosahedron,  'i', RADIUS_ICOSA),
 };
 
 const size_t nshapes = COUNT(shapes);
 
-const mesh *shape_find(const char *name) {
+const mesh *shape_find_name(const char *name) {
         for (size_t i = 0; i < nshapes; i++)
                 if (strcmp(shapes[i].name, name) == 0)
+                        return &shapes[i];
+
+        return nullptr;
+}
+
+const mesh *shape_find_opt(char opt) {
+        for (size_t i = 0; i < nshapes; i++)
+                if (shapes[i].opt == opt)
                         return &shapes[i];
 
         return nullptr;
