@@ -27,7 +27,13 @@ emaint sync --repo noahburchell
 emerge --ask app-misc/cube
 cube --help
 ```
-### if you have nix (linux or macos):
+
+### if you have brew:
+```sh
+brew install noahburchell/cube/cube # i havent been able to test this yet, i will withinh the next hour, so if youre seeing this hi
+```
+
+### if you have nix:
 
 run it without installing anything:
 ```sh
