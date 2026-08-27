@@ -30,6 +30,7 @@ cube --help
 
 ### if you have brew:
 ```sh
+# you need xcode 16.3+ (apple clang 17)
 brew install noahburchell/cube/cube
 ```
 
