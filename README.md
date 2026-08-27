@@ -2,7 +2,7 @@
 ### spinning cube (and the other platonic solids)
 ### get it: [Gentoo](#if-youre-on-gentoo) | [Nix](#if-you-have-nix) | [Brew](#if-you-have-brew) | [Source](#if-youre-on-something-else-apart-from-windows)
 
-### usage
+### usage:
 ```sh
 usage: cube [option]
 
@@ -86,7 +86,7 @@ dependencies:
   - make (`gmake` on the bsds)
   - gcc 14+ or clang 19+
 
-#### macos
+#### macos:
 
 you need xcode 16.3+ (apple clang 17). older xcode accepts `-std=gnu23`
 but has no c23 `constexpr`, so the build will fail. if that happens:
@@ -98,7 +98,7 @@ make CC="$(brew --prefix llvm)/bin/clang"
 
 homebrew `gcc` works too.
 
-#### bsd
+#### bsd:
 
 run `gmake`, not `make`.
 
@@ -123,7 +123,7 @@ git clone --depth 1  https://github.com/noahburchell/cube.git
 cd cube
 ```
 
-#### build it
+#### build it:
 
 ```sh
 make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
