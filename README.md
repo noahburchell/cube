@@ -1,6 +1,6 @@
-# cube
-
-spinning cube (and the other platonic solids)
+# cube 
+### spinning cube (and the other platonic solids)
+### get it: [Gentoo](#if-youre-on-gentoo) | [Nix](#if-you-have-nix) | [Brew](#if-you-have-brew) | [Source](#if-youre-on-something-else-apart-from-windows)
 
 ### usage
 ```sh
@@ -110,7 +110,7 @@ from packages/pkgsrc and the makefile will find it on its own: it looks for
 #### get the source
 grab the release tarball:
 
-```
+```sh
 curl -LO https://github.com/noahburchell/cube/archive/refs/tags/v1.2.tar.gz
 tar xf v1.2.tar.gz
 cd cube-1.2
@@ -118,14 +118,14 @@ cd cube-1.2
 
 or clone the repo:
 
-```
+```sh
 git clone --depth 1  https://github.com/noahburchell/cube.git
 cd cube
 ```
 
 #### build it
 
-```
+```sh
 make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
 sudo make install
 cube --help
@@ -134,7 +134,7 @@ cube --help
 `make install` puts the binary in `/usr/bin` by default. so if you don't have root, or you
 just don't want it there:
 
-```
+```sh
 make install PREFIX="$HOME/.local" # make sure its in path
 ```
 
