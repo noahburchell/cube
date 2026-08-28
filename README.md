@@ -1,6 +1,6 @@
 # cube 
 ### spinning cube (and the other platonic solids)
-### get it: [Gentoo](#if-youre-on-gentoo) | [Nix](#if-you-have-nix) | [Brew](#if-you-have-brew) | [Source](#if-youre-on-something-else-apart-from-windows)
+### get it: [gentoo](#if-youre-on-gentoo) | [nix](#if-you-have-nix) | [brew](#if-you-have-brew) | [source](#if-youre-on-something-else-apart-from-windows)
 
 ### usage:
 ```sh
