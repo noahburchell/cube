@@ -22,8 +22,8 @@ q or esc quits
 ### if you're on gentoo:
 ```sh
 emerge --ask app-eselect/eselect-repository
-eselect repository add noahburchell git https://github.com/noahburchell/noahburchell-overlay.git
-emaint sync --repo noahburchell
+eselect repository add nburch git https://github.com/noahburchell/nburch-overlay.git
+emaint sync --repo nburch
 emerge --ask app-misc/cube
 cube --help
 ```
