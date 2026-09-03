@@ -148,12 +148,6 @@ are you unhappy with the characters i chose for shading?
 do you want the shapes to spin faster/slower?
   - spin period was chosen for a reason. changing it may introduce stutter
 
-### demo
-
-demo? just install it! you will like it im sure
-
-seriously, the demo gif is outdated and i havent gotten around to updating it. it will be updated soon
-
 ### contact
 
 if you have any questions contact me: cube@nburch.org
