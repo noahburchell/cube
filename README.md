@@ -2,7 +2,7 @@
 ### spinning cube (and the other platonic solids)
 ### get it: [gentoo](#if-youre-on-gentoo) | [nix](#if-you-have-nix) | [brew](#if-you-have-brew) | [source](#if-youre-on-something-else-apart-from-windows)
 
-demo: nburch.org
+demo: https://nburch.org
 
 ### usage:
 ```sh
