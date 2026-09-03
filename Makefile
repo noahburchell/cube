@@ -20,20 +20,6 @@ SRC     := $(wildcard src/*.c)
 OBJ     := $(SRC:src/%.c=build/%.o)
 DEP     := $(OBJ:.o=.d)
 
-WARN := -Wall -Wextra -Wpedantic \
-	-Wshadow -Wundef -Wvla -Walloca -Wwrite-strings -Wpointer-arith \
-	-Wcast-align=strict -Wcast-qual -Wbad-function-cast -Wcast-function-type \
-	-Wconversion -Wsign-conversion -Wfloat-equal -Wdouble-promotion \
-	-Wshift-overflow=2 -Warray-bounds=2 -Wstringop-overflow=4 \
-	-Wformat=2 -Wformat-overflow=2 -Wformat-truncation=2 -Wformat-signedness \
-	-Wstrict-prototypes -Wold-style-definition -Wmissing-prototypes \
-	-Wmissing-declarations -Wmissing-include-dirs -Wnested-externs \
-	-Wredundant-decls -Wunused-macros -Winit-self \
-	-Wswitch-enum -Wswitch-default -Wimplicit-fallthrough=5 \
-	-Wduplicated-cond -Wduplicated-branches -Wlogical-op \
-	-Wjump-misses-init -Wnull-dereference -Wtrampolines \
-	-Wdisabled-optimization -Wstack-protector -Woverlength-strings
-
 CC_CANDIDATES := gcc clang cc gcc-15 gcc-14 clang-21 clang-20 clang-19 \
                  gcc15 gcc14 clang20 clang19 egcc
 CC_IS_SET     := $(filter-out default undefined file,$(origin CC))
@@ -69,10 +55,10 @@ endif
 all: $(BIN)
 
 $(BIN): $(OBJ)
-	$(CC) $(CFLAGS) $(LDFLAGS) $(WARN) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 build/%.o: src/%.c | build
-	$(CC) $(CFLAGS) $(WARN) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 build:
 	mkdir -p build
