@@ -9,7 +9,7 @@ url="https://github.com/noahburchell/cube"
 license=('GPL-3.0-only')
 depends=('glibc')
 source=("$pkgname-$pkgver.tar.gz::$url/releases/download/v$pkgver/$pkgname-$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('15a73225cb371d30a7587d597bfab689a3cdbe130e587c034219a32cc00384b3')
 
 build() {
 	cd "$pkgname-$pkgver"
