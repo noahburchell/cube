@@ -15,4 +15,5 @@ src/*
 !src/shapes.c
 !src/shapes.h
 !flake.nix
+!flake.lock
 !PKGBUILD
