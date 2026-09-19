@@ -123,8 +123,7 @@ from packages/pkgsrc and the makefile will find it on its own: it looks for
 
 #### get the source
 
-grab the release tarball. this is the canonical download: the bytes are fixed and
-the checksum will never change.
+get the release tarball
 
 ```sh
 curl -LO https://github.com/noahburchell/cube/releases/download/v1.2.1/cube-1.2.1.tar.gz
@@ -132,14 +131,14 @@ tar xf cube-1.2.1.tar.gz
 cd cube-1.2.1
 ```
 
-verify it first if you like. the checksum is also printed in the release notes:
+verify it first if you want, the checksum is also printed in the release notes:
 
 ```sh
 curl -LO https://github.com/noahburchell/cube/releases/download/v1.2.1/cube-1.2.1.tar.gz.sha256
 sha256sum -c cube-1.2.1.tar.gz.sha256
 ```
 
-or clone the repo, if you want to track development rather than a release:
+or clone the repo:
 
 ```sh
 git clone --depth 1 https://github.com/noahburchell/cube.git
