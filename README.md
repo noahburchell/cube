@@ -2,6 +2,8 @@
 ### spinning cube (and the other platonic solids)
 ### get it: [gentoo](#if-youre-on-gentoo) | [nix](#if-you-have-nix) | [brew](#if-you-have-brew) | [source](#if-youre-on-something-else-apart-from-windows)
 
+latest release: **v1.2.1** — https://github.com/noahburchell/cube/releases/latest
+
 demo: https://nburch.org
 
 ### usage:
@@ -40,19 +42,19 @@ brew install noahburchell/cube/cube
 
 run it without installing anything:
 ```sh
-nix run github:noahburchell/cube
-nix run github:noahburchell/cube -- --icosahedron
+nix run github:noahburchell/cube/v1.2.1
+nix run github:noahburchell/cube/v1.2.1 -- --icosahedron
 ```
 
 install it into your profile:
 ```sh
-nix profile install github:noahburchell/cube
+nix profile install github:noahburchell/cube/v1.2.1
 ```
 
 or add it to a flake:
 ```nix
 {
-  inputs.cube.url = "github:noahburchell/cube";
+  inputs.cube.url = "github:noahburchell/cube/v1.2.1";
 
   # then, in your config:
   #   environment.systemPackages = [ inputs.cube.packages.${pkgs.system}.default ];
@@ -110,18 +112,27 @@ from packages/pkgsrc and the makefile will find it on its own: it looks for
 
 
 #### get the source
-grab the release tarball:
+
+grab the release tarball. this is the canonical download: the bytes are fixed and
+the checksum will never change.
 
 ```sh
-curl -LO https://github.com/noahburchell/cube/archive/refs/tags/v1.2.tar.gz
-tar xf v1.2.tar.gz
-cd cube-1.2
+curl -LO https://github.com/noahburchell/cube/releases/download/v1.2.1/cube-1.2.1.tar.gz
+tar xf cube-1.2.1.tar.gz
+cd cube-1.2.1
 ```
 
-or clone the repo:
+verify it first if you like. the checksum is also printed in the release notes:
 
 ```sh
-git clone --depth 1  https://github.com/noahburchell/cube.git
+curl -LO https://github.com/noahburchell/cube/releases/download/v1.2.1/cube-1.2.1.tar.gz.sha256
+sha256sum -c cube-1.2.1.tar.gz.sha256
+```
+
+or clone the repo, if you want to track development rather than a release:
+
+```sh
+git clone --depth 1 https://github.com/noahburchell/cube.git
 cd cube
 ```
 

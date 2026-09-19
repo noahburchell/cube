@@ -16,7 +16,7 @@
         in
         pkgs.stdenv.mkDerivation {
           pname = "cube";
-          version = "1.2";
+          version = "1.2.1";
 
           src = lib.fileset.toSource {
             root = ./.;
