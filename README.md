@@ -1,6 +1,6 @@
 # cube 
 ### spinning cube (and the other platonic solids)
-### get it: [gentoo](#if-youre-on-gentoo) | [nix](#if-you-have-nix) | [brew](#if-you-have-brew) | [source](#if-youre-on-something-else-apart-from-windows)
+### get it: [gentoo](#if-youre-on-gentoo) | [arch](#if-youre-on-arch) | [nix](#if-you-have-nix) | [brew](#if-you-have-brew) | [source](#if-youre-on-something-else-apart-from-windows)
 
 latest release: **v1.2.1** — https://github.com/noahburchell/cube/releases/latest
 
@@ -31,6 +31,16 @@ emaint sync --repo nburch
 emerge --ask app-misc/cube
 cube --help
 ```
+
+### if you're on arch:
+
+```sh
+curl -LO https://github.com/noahburchell/cube/releases/download/v1.2.1/PKGBUILD
+# 'less PKGBUILD' if you want to read it
+makepkg -si
+```
+
+needs `base-devel`
 
 ### if you have brew:
 ```sh
@@ -79,7 +89,7 @@ distro packaging status:
   - gentoo ✅
   - brew ✅
   - nix ✅
-  - arch ❔ (i made the PKGBUILD, but AUR account registrations are closed)
+  - arch ✅ (not on the AUR because registrations are closed)
   - everything else ❌
 
 ### if you're on something else (apart from windows):
