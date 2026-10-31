@@ -17,3 +17,5 @@ src/*
 !flake.nix
 !flake.lock
 !PKGBUILD
+\#*
+.#*

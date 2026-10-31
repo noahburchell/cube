@@ -44,7 +44,7 @@ needs `base-devel`
 
 ### if you have brew:
 ```sh
-# you need xcode 16.3+ (apple clang 17)
+# on xcode older than 16.3 (apple clang 17) the formula pulls in homebrew llvm to build
 brew install noahburchell/cube/cube
 ```
 
@@ -58,8 +58,10 @@ nix run github:noahburchell/cube/v1.2.1 -- --icosahedron
 
 install it into your profile:
 ```sh
-nix profile install github:noahburchell/cube/v1.2.1
+nix profile add github:noahburchell/cube/v1.2.1
 ```
+
+on nix older than 2.30 the command is `nix profile install`
 
 or add it to a flake:
 ```nix
@@ -67,7 +69,7 @@ or add it to a flake:
   inputs.cube.url = "github:noahburchell/cube/v1.2.1";
 
   # then, in your config:
-  #   environment.systemPackages = [ inputs.cube.packages.${pkgs.system}.default ];
+  #   environment.systemPackages = [ inputs.cube.packages.${pkgs.stdenv.hostPlatform.system}.default ];
   # or, with the overlay:
   #   nixpkgs.overlays = [ inputs.cube.overlays.default ];
   #   environment.systemPackages = [ pkgs.cube ];
@@ -116,9 +118,10 @@ homebrew `gcc` works too.
 
 run `gmake`, not `make`.
 
-freebsd 14.2+ has a new enough clang in base. on openbsd and netbsd, install one
-from packages/pkgsrc and the makefile will find it on its own: it looks for
-`clang19`, `clang20`, `gcc14`, `gcc15` and `egcc` on path.
+freebsd 14.3+ has a new enough clang in base (14.2 ships clang 18). on openbsd and netbsd,
+install one from packages/pkgsrc and the makefile will find it on its own: it tries `gcc`,
+`clang` and `cc`, then `clang-19` to `clang-21`, `gcc-14`, `gcc-15`, `clang19`, `clang20`,
+`gcc14`, `gcc15` and `egcc` on path.
 
 
 #### get the source

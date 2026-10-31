@@ -354,7 +354,7 @@ static int parse_args(int argc, char **argv, const char *prog, const mesh **shap
                         if (arg[2] == '\0') {
                                 opts = false;
                                 continue;
-                        }
+                        }`
 
                         if (strcmp(arg + 2, "help") == 0) {
                                 usage(stdout, prog);
