@@ -4,8 +4,6 @@
 
 latest release: **v1.2.2** — https://github.com/noahburchell/cube/releases/latest
 
-demo: https://nburch.org
-
 ### usage:
 ```sh
 usage: cube [option]
