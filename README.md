@@ -2,7 +2,7 @@
 ### spinning cube (and the other platonic solids)
 ### get it: [gentoo](#if-youre-on-gentoo) | [arch](#if-youre-on-arch) | [nix](#if-you-have-nix) | [brew](#if-you-have-brew) | [source](#if-youre-on-something-else-apart-from-windows)
 
-latest release: **v1.2.1** — https://github.com/noahburchell/cube/releases/latest
+latest release: **v1.2.2** — https://github.com/noahburchell/cube/releases/latest
 
 demo: https://nburch.org
 
@@ -35,7 +35,7 @@ cube --help
 ### if you're on arch:
 
 ```sh
-curl -LO https://github.com/noahburchell/cube/releases/download/v1.2.1/PKGBUILD
+curl -LO https://github.com/noahburchell/cube/releases/download/v1.2.2/PKGBUILD
 # 'less PKGBUILD' if you want to read it
 makepkg -si
 ```
@@ -52,13 +52,13 @@ brew install noahburchell/cube/cube
 
 run it without installing anything:
 ```sh
-nix run github:noahburchell/cube/v1.2.1
-nix run github:noahburchell/cube/v1.2.1 -- --icosahedron
+nix run github:noahburchell/cube/v1.2.2
+nix run github:noahburchell/cube/v1.2.2 -- --icosahedron
 ```
 
 install it into your profile:
 ```sh
-nix profile add github:noahburchell/cube/v1.2.1
+nix profile add github:noahburchell/cube/v1.2.2
 ```
 
 on nix older than 2.30 the command is `nix profile install`
@@ -66,7 +66,7 @@ on nix older than 2.30 the command is `nix profile install`
 or add it to a flake:
 ```nix
 {
-  inputs.cube.url = "github:noahburchell/cube/v1.2.1";
+  inputs.cube.url = "github:noahburchell/cube/v1.2.2";
 
   # then, in your config:
   #   environment.systemPackages = [ inputs.cube.packages.${pkgs.stdenv.hostPlatform.system}.default ];
@@ -76,7 +76,7 @@ or add it to a flake:
 }
 ```
 
-hacking it (drops you in a shell with a compiler, make, bear, clangd and a debugger):
+hacking it?:
 ```sh
 nix develop
 make
@@ -101,6 +101,29 @@ dependencies:
   - linux, macos, or a bsd
   - make (`gmake` on the bsds)
   - gcc 14+ or clang 19+
+
+#### debian and ubuntu:
+
+debian 13+ and ubuntu 26.04+ ship a new enough gcc by default:
+
+```sh
+sudo apt install build-essential
+```
+
+ubuntu 24.04 ships gcc 13 by default, install gcc 14
+
+```sh
+sudo apt install make gcc-14 libc6-dev
+```
+
+debian 12 has no gcc 14 package, so use clang 19:
+
+```sh
+sudo apt install make clang-19
+```
+
+the makefile finds `gcc-14` and `clang-19` on its own, `CC` does not need to be set.
+ubuntu 22.04 doesnt have a new enough compiler in its archive
 
 #### macos:
 
@@ -129,16 +152,16 @@ install one from packages/pkgsrc and the makefile will find it on its own: it tr
 get the release tarball
 
 ```sh
-curl -LO https://github.com/noahburchell/cube/releases/download/v1.2.1/cube-1.2.1.tar.gz
-tar xf cube-1.2.1.tar.gz
-cd cube-1.2.1
+curl -LO https://github.com/noahburchell/cube/releases/download/v1.2.2/cube-1.2.2.tar.gz
+tar xf cube-1.2.2.tar.gz
+cd cube-1.2.2
 ```
 
 verify it first if you want, the checksum is also printed in the release notes:
 
 ```sh
-curl -LO https://github.com/noahburchell/cube/releases/download/v1.2.1/cube-1.2.1.tar.gz.sha256
-sha256sum -c cube-1.2.1.tar.gz.sha256
+curl -LO https://github.com/noahburchell/cube/releases/download/v1.2.2/cube-1.2.2.tar.gz.sha256
+sha256sum -c cube-1.2.2.tar.gz.sha256
 ```
 
 or clone the repo:

@@ -1,2 +1,3 @@
 *.h linguist-language=C
 PKGBUILD export-ignore
+docs export-ignore
